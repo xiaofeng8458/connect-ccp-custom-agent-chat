@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/amazon-connect-streams@2.13.2/release/connect-streams.js"></script>
+    <script type="text/javascript" src="amazon-connect-chat-interface.js"></script>
+    <style>
+        .box {
+            /*border: 1px solid #ccc;*/
+            padding: 2px;
+            margin-bottom: 2px;
+        }
+
+        /* Add custom styles here */
+        .chat-box {
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+        }
+
+        .chat-message .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        .contact-list {
+            -moz-transition: .5s;
+            -o-transition: .5s;
+            -webkit-transition: .5s;
+            transition: .5s;
+            border: 1px solid #ccc;
+            height: 100%;
+        }
+
+        .contact-list .chat-list li {
+            padding: 10px 15px;
+            list-style: none;
+            border-radius: 3px;
+        }
+
+        .contact-list .chat-list li:hover {
+            background: #efefef;
+            cursor: pointer;
+        }
+
+        .contact-list .chat-list li.active {
+            background: #efefef;
+        }
+
+        .contact-list .chat-list li .name {
+            font-size: 15px;
+        }
+    </style>
+</head>
+
+<body onload="init()">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-4">
+                <div id="ccpContainer">
+                    <div id="container-div" style="width: 100%; height: 625px;"></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="box">
+                                <input id="ccpContainer-btn" type=button value="隐藏CCP" class="btn btn-primary btn-sm"
+                                    style="width: 100px" onclick="HideCCP()" /> <input id="ccpContainer-btn" type=button
+                                    value="关闭CCP" class="btn btn-primary btn-sm" style="width: 100px"
+                                    onclick="Terminate()" /><input type=button value="初始化CCP"
+                                    class="btn btn-primary btn-sm" style="margin:4px;width: 100px"
+                                    onclick="init()"></input>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="box">
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <select id="stateDropdown" class="form-select" onchange="handleSelectChange()"></select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div id="txtChatBox" class="chat-box mt-3">
+                            </div>
+                            <!-- Chat Input -->
+                            <div class="mt-3">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" placeholder="输入消息..." id="txtMessage">
+                                    <button class="btn btn-primary" onclick="sendChatMessage()">发送</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="col-lg-4">
+                <div class="contact-list">
+                    <ul id="clist" class="list-unstyled chat-list mt-2 mb-0"></ul>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-12">
+                    <div><input type=button id="clear" value="Clear Event Output" class="btn btn-primary  btn-sm"
+                            style="margin:2px;width: 150px" onclick="clearOutput()"><input id="outputContainer-btn"
+                            type=button value="Show Event Output" class="btn btn-primary btn-sm"
+                            style="margin:2px;width: 150px" onclick="ShowOutput()" /></input>
+                    </div>
+                    <textarea id="message" class="form-control" rows="12" cols="50" style="display: none;"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            const instanceURL = "https://connect-us-1.my.connect.aws/ccp-v2/";
+            const instanceRegion = "us-east-1";
+            const loginURL = "";
+
+            // initialize the streams api
+            function init() {
+
+                window.localStorage.removeItem('connectPopupManager::connect::loginPopup');
+
+                initialize();
+
+                // initialize the ccp
+                initCore(instanceURL, loginURL, instanceRegion);
+
+                connect.contact(subscribeToContactEvents);
+
+                connect.agent(subscribeToAgentEvents);
+
+            }
+
+            function initCore(instanceURL, loginURL, instanceRegion) {
+                var containerDiv = document.getElementById("container-div");
+                try {
+                    connect.core.initCCP(containerDiv, {
+                        ccpUrl: instanceURL,            // REQUIRED
+                        loginUrl: loginURL,
+                        loginPopup: true,               // optional, defaults to `true`
+                        loginPopupAutoClose: true,      // optional, defaults to `false`
+                        loginOptions: {                 // optional, if provided opens login in new window
+                            autoClose: true,              // optional, defaults to `false`
+                            height: 600,                  // optional, defaults to 578
+                            width: 400,                   // optional, defaults to 433
+                            top: 0,                       // optional, defaults to 0
+                            left: 0                       // optional, defaults to 0
+                        },
+                        region: instanceRegion,         // REQUIRED for `CHAT`, optional otherwise
+                        softphone: {                    // optional, defaults below apply if not provided
+                            allowFramedSoftphone: true,   // optional, defaults to false
+                            disableRingtone: false,       // optional, defaults to false
+                            // ringtoneUrl: "./ringtone.mp3" // optional, defaults to CCP’s default ringtone if a falsy value is set
+                        },
+                        chat: {
+                            disableRingtone: false, // optional, defaults to false
+                            ringtoneUrl: "http://127.0.0.1:5502/agent-chat-demo-customized/ringtone.mp3"
+                        },
+                        pageOptions: { //optional
+                            enableAudioDeviceSettings: true, //optional, defaults to 'false'
+                            enablePhoneTypeSettings: true //optional, defaults to 'true'
+                        },
+                        ccpAckTimeout: 5000, //optional, defaults to 3000 (ms)
+                        ccpSynTimeout: 3000, //optional, defaults to 1000 (ms)
+                        ccpLoadTimeout: 10000 //optional, defaults to 5000 (ms)
+                    });
+                }
+                catch (err) {
+                    logOutput(JSON.stringify(err));
+                }
+            }
+
+            function subscribeToContactEvents(c) {
+                c.onConnecting(function (c) {
+                    logOutput('onConnecting event : handleContactConnecting');
+
+                    window.contact = c;
+                    addConnectingContact(c);
+                });
+
+                c.onConnected(function (c) {
+                    logOutput('onConnected event : Contact connected to agent');
+
+                    window.contact = c;
+                    window.agentConnection = c.getAgentConnection();
+
+                    addConnectedContact(c);
+                });
+
+                c.onAccepted(async () => {
+                    initChatController(c);
+                });
+
+            }
+
+            async function initChatController(contact) {
+                const cnn = contact.getAgentConnection();
+                if (cnn) {
+                    const controller = await cnn.getMediaController();
+                    window.controller = controller;
+                    window.controller.onMessage(function (response) {
+                        logOutput("on message:" + JSON.stringify(response));
+                        addChatMessage(response);
+                    });
+                }
+            }
+
+            function sendChatMessage() {
+                if (window.controller) {
+                    var msg = document.getElementById('txtMessage').value;
+                    window.controller.sendMessage({
+                        contentType: "text/plain",
+                        message: msg
+                    });
+                    document.getElementById('txtMessage').value = '';
+                    logOutput("send message:" + msg);
+                }
+            }
+
+            function getReceivedMessage() {
+                const table = '<div class="d-flex flex-row justify-content-start">' +
+                    '<span>DisplayName</span>' +
+                    '</div>' +
+                    '<div class="d-flex flex-row justify-content-start">' +
+                    '<div>' +
+                    '<p class="small p-2 ms-3 mb-1 rounded-3 bg-body-tertiary">Content</p>' +
+                    '<p class="small ms-3 mb-3 rounded-3 text-muted">Time</p>' +
+                    '</div>' +
+                    '</div>'
+                return table;
+            }
+
+            function getSentMessage() {
+                const table = '<div class="d-flex flex-row justify-content-end">' +
+                    '<span>DisplayName</span>' +
+                    '</div>' +
+                    '<div class="d-flex flex-row justify-content-end mb-4 pt-1">' +
+                    '<div>' +
+                    '<p class="small p-2 me-3 mb-1 text-white rounded-3 bg-primary">Content</p>' +
+                    '<p class="small me-3 mb-3 rounded-3 text-muted d-flex justify-content-end">Time</p>' +
+                    '</div>' +
+                    '</div>'
+                return table;
+            }
+
+            function getCurrentTime() {
+                const now = new Date();
+                const hours = now.getHours().toString().padStart(2, '0');
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+                const seconds = now.getSeconds().toString().padStart(2, '0');
+                const currentTime = `${hours}:${minutes}:${seconds}`;
+                return currentTime;
+            }
+
+            function getChatMessage(response, role) {
+                if (response.data) {
+                    if (response.data.Type == 'MESSAGE') {
+                        var table = role == 'sent' ? getSentMessage() : getReceivedMessage();
+                        table = table.replace("DisplayName", response.data.DisplayName);
+                        table = table.replace("Content", response.data.Content);
+                        table = table.replace("Time", getCurrentTime());
+
+                        return table;
+                    }
+                }
+
+                return '';
+            }
+
+            function addChatMessage(response) {
+                var message = getChatMessage(response, response.data.ParticipantRole == 'AGENT' ? 'sent' : 'received');
+                document.getElementById('txtChatBox').innerHTML += message;
+            }
+
+            function getConnectingContact() {
+                const table = '<li id="ContactId" class="clearfix">' +
+                    '<div class="about">' +
+                    '<div class="name">DisplayName<span id="ContactId-indicator"><span></div>' +
+                    '<div><input type=button value="接受聊天" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="AcceptContact()" /><input type=button value="拒绝聊天" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="RejectContact()" /></div>' +
+                    '</div>' +
+                    '</li>';
+
+                return table;
+            }
+
+            function getConnectedContact() {
+                const table = '<li id="ContactId" class="clearfix">' +
+                    '<div class="about">' +
+                    '<div class="name">DisplayName<span id="ContactId-indicator"><span></div>' +
+                    '<div><input type=button value="结束聊天" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="EndContact()" /><input type=button value="结束ACW" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="ClearContact(\'ContactId\')" /></div>' +
+                    '</div>' +
+                    '</li>';
+
+                return table;
+            }
+
+            function removeContact(contactId) {
+                const list = document.getElementById('clist');
+                const item = document.getElementById(contactId);
+                if (item) {
+                    list.removeChild(item);
+                }
+            }
+
+            function addConnectingContact(contact) {
+                removeContact(contact.contactId);
+
+                var table = getConnectingContact();
+                table = table.replace(new RegExp("ContactId", 'g'), contact.contactId);
+                table = table.replace("DisplayName", getCustomerName(contact));
+
+                document.getElementById('clist').innerHTML += table;
+
+                restart_checker(contact.contactId, true, 'Connecting');
+            }
+
+            function addConnectedContact(contact) {
+                removeContact(contact.contactId);
+
+                var table = getConnectedContact();
+                table = table.replace(new RegExp("ContactId", 'g'), contact.contactId);
+                table = table.replace("DisplayName", getCustomerName(contact));
+
+                document.getElementById('clist').innerHTML += table;
+
+                restart_checker(contact.contactId, true, 'Connected');
+            }
+
+            function subscribeToAgentEvents(agent) {
+                logOutput('Agent login');
+
+                window.ccp.agent = agent;
+
+                agent.onStateChange((event) => {
+                    showAgentStatus('onStateChange', agent);
+                });
+
+                agent.onOffline((event) => {
+                    showAgentStatus('onOffline', agent);
+                });
+
+                loadAgentStates();
+
+            }
+
+            function getCustomerName(contact) {
+                var name = "Anonymous";
+                var c1 = contact.getConnections()[1];
+                var info = c1.getMediaInfo().originalInfo;
+                if (info) {
+                    name = info.customerName;
+                }
+                return name;
+            }
+
+            function showContactStatus(contact) {
+                try {
+                    var status = contact.getStatus();
+                    logOutput('contact status:' + JSON.stringify(status));
+                }
+                catch (e) {
+                    console.log('Error retrieving contact status : ', e);
+                }
+            }
+
+            function showContactType(contact) {
+                var ctype = contact.getType();
+                document.getElementById('txtContactType').value = ctype
+            }
+
+            function showContactID(contact) {
+                document.getElementById('txtContactID').value = contact.contactId;
+            }
+
+            function showAgentStatus(trigger, agent) {
+                var aname = agent.getName();
+                var astate = agent.getState();
+                logOutput(trigger + ' event : ' + aname + ' goes ' + astate.name);
+            }
+
+            function initialize() {
+                window.ccp = window.ccp || {};
+                window.contact = window.contact || {};
+                window.controller = window.controller || {};
+                window.isCCPVisible = true;
+                window.isOutputVisible = false;
+                window.agentStates = {};
+                window.timers = {};
+            }
+
+            function logOutput(text) {
+                var textarea = document.getElementById("message");
+                textarea.value += text + "\n";
+            }
+
+            function clearOutput(text) {
+                document.getElementById('message').value = "";
+            }
+
+            function AcceptContact() {
+                if (window.contact == {}) {
+                    alert("No contact is coming");
+                }
+                else {
+                    c = window.contact;
+                    c.accept({
+                        success: function () {
+                        },
+                        failure: function (err) {
+                        }
+                    });
+                }
+            }
+
+            function RejectContact() {
+                if (window.contact == {}) {
+                    alert("No contact is coming");
+                }
+                else {
+                    c = window.contact;
+                    c.reject({
+                        success: function () {
+                        },
+                        failure: function (err) {
+                        }
+                    });
+                }
+            }
+
+            function EndContact() {
+                if (window.contact == {}) {
+                    alert("No call is connected");
+                }
+                else {
+                    c = window.contact;
+                    var initialConnection = c.getInitialConnection();
+                    var thirdParty = c.getSingleActiveThirdPartyConnection();
+                    if (initialConnection) {
+                        initialConnection.destroy({
+                            success: function () {
+                            },
+                            failure: function (err) {
+                                alert(err)
+                            }
+                        });
+                    }
+                }
+
+                restart_checker(c.contactId, true, 'ACW');
+            }
+
+            function restart_checker(cId, display, s) {
+                const checkTimer = window.timers[cId];
+                if (checkTimer) {
+                    clearInterval(checkTimer);
+                }
+
+                if (display) {
+                    const startTime = new Date().getTime();
+                    window.timers[cId] = setInterval(() => {
+                        const currentTime = new Date().getTime();
+                        const elapsedTime = currentTime - startTime;
+                        const durationString = formatTime(elapsedTime);
+
+                        const indicator = cId + '-indicator';
+                        var timerDiv = document.getElementById(indicator);
+                        timerDiv.textContent = ' ' + s + ' ' + durationString;
+                    }, 1000);
+                }
+            }
+
+            function formatTime(milliseconds) {
+                const seconds = Math.floor(milliseconds / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+
+                const remainingSeconds = seconds % 60;
+                const remainingMinutes = minutes % 60;
+
+                return `${padZero(hours)}:${padZero(remainingMinutes)}:${padZero(remainingSeconds)}`;
+            }
+
+            function padZero(value) {
+                return value.toString().padStart(2, '0');
+            }
+
+            function HideCCP() {
+                window.isCCPVisible = !window.isCCPVisible;
+
+                var containerBtn = document.getElementById("ccpContainer-btn");
+                containerBtn.value = window.isCCPVisible ? "隐藏 CCP" : "显示 CCP";
+
+                var containerDiv = document.getElementById("container-div");
+                containerDiv.style = window.isCCPVisible ? "width: 100%; height: 625px;display:block" : "width: 100%; height: 100%;display:none";
+            }
+
+            function ShowOutput() {
+                window.isOutputVisible = !window.isOutputVisible;
+
+                var containerBtn = document.getElementById("outputContainer-btn");
+                containerBtn.value = window.isOutputVisible ? "Hide Output" : "Show Output";
+
+                var containerDiv = document.getElementById("message");
+                containerDiv.style = window.isOutputVisible ? "width: 100%; height: 100%;display:block" : "width: 100%; height: 100%;display:none";
+            }
+
+            function SetAgentState(stateName) {
+                if (window.ccp.agent == {}) {
+                    alert("Initialize CCP first");
+                }
+                else {
+                    if (window.agentStates.length > 0) {
+                        const state = window.agentStates.filter(s => s.name === stateName)[0];
+                        window.ccp.agent.setState(state, {
+                            success: function () {
+                            },
+                            failure: function () {
+                            }
+                        });
+                    }
+                }
+            }
+
+            function Terminate() {
+                var containerDiv = document.getElementById("container-div");
+                connect.core.terminate();
+                var iframe = containerDiv.firstElementChild; // assumes there's nothing else in the container
+                containerDiv.removeChild(iframe);
+
+            }
+
+            function clearChatWindow() {
+                document.getElementById('txtChatBox').innerHTML = '';
+                document.getElementById('txtMessage').value = '';
+            }
+
+            function ClearContact(contactId) {
+                if (window.contact == {}) {
+                    alert("No contact is coming");
+                }
+                else {
+                    c = window.contact;
+                    c.clear({
+                        success: function () {
+                            removeContact(contactId);
+                            clearChatWindow();
+                        },
+                        failure: function (err) {
+
+                        }
+                    });
+                }
+
+                restart_checker(contactId, false, '');
+            }
+
+            function loadAgentStates() {
+                const agent = new lily.Agent();
+                const states = agent.getAgentStates();
+                states.sort((a, b) => a.name.localeCompare(b.name));
+                window.agentStates = states;
+                const dropdown = document.getElementById("stateDropdown");
+                dropdown.options.length = 0;
+                for (let i = 0; i < states.length; i++) {
+                    // Create a new <option> element
+                    const option = document.createElement("option");
+
+                    // Set the value and text of the <option>
+                    option.value = i;
+                    option.text = states[i].name;
+
+                    // Add the <option> to the <select>
+                    dropdown.add(option);
+                };
+                const curState = agent.getState();
+                SetAgentState(curState);
+            }
+
+            function handleSelectChange() {
+                const dropdown = document.getElementById("stateDropdown");
+                const selectedOption = dropdown.options[dropdown.selectedIndex];
+                const selectedState = selectedOption.text;
+                SetAgentState(selectedState);
+            }
+        </script>
+</body>
+
+</html>
