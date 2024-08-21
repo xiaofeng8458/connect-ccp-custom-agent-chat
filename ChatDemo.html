@@ -226,6 +226,14 @@
                         logOutput("on message:" + JSON.stringify(response));
                         addChatMessage(response);
                     });
+
+                    const awsSdkResponse = await controller.getTranscript({
+                        maxResults: 100,
+                        sortOrder: "ASCENDING"
+                    });
+                    const { InitialContactId, NextToken, Transcript } = awsSdkResponse.data;
+                    addChatTranscriptMessage(Transcript);
+                    logOutput(JSON.stringify(Transcript));
                 }
             }
 
@@ -294,6 +302,52 @@
             function addChatMessage(response) {
                 var message = getChatMessage(response, response.data.ParticipantRole == 'AGENT' ? 'sent' : 'received');
                 document.getElementById('txtChatBox').innerHTML += message;
+            }
+
+            function addChatTranscriptMessage(response) {
+                response.forEach(item => {
+                    const type = item.Type;
+                    if (type == 'MESSAGE') {
+                        const participantRole = item.ParticipantRole;
+                        const displayName = item.DisplayName;
+                        const content = item.Content;
+                        const localTime = convertToLocalTime(item.AbsoluteTime);
+
+                        var table = participantRole == 'CUSTOMER' ? getReceivedMessage() : getSentMessage();
+                        table = table.replace("DisplayName", displayName);
+                        table = table.replace("Content", content);
+                        table = table.replace("Time", localTime);
+
+                        document.getElementById('txtChatBox').innerHTML += table;
+                    }
+                });
+            }
+
+            function convertToLocalTime(utcTimeString) {
+                // Create a Date object from the UTC time string
+                const date = new Date(utcTimeString);
+
+                // Get the local time components
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+
+                // Get the timezone offset in minutes
+                const timezoneOffset = date.getTimezoneOffset();
+                const timezoneHours = Math.abs(Math.floor(timezoneOffset / 60));
+                const timezoneMinutes = Math.abs(timezoneOffset % 60);
+
+                // Determine the timezone sign
+                const timezoneSign = timezoneOffset > 0 ? '-' : '+';
+
+                // Format the local time string
+                const localTimeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+                return localTimeString;
             }
 
             function getConnectingContact() {
