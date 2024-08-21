@@ -63,7 +63,7 @@
 </head>
 
 <body onload="init()">
-    <div class="container">
+    <div class="container mt-3">
         <div class="row">
             <div class="col-lg-4">
                 <div id="ccpContainer">
@@ -75,12 +75,14 @@
                     <div class="row">
                         <div class="col-lg-12">
                             <div class="box">
-                                <input id="ccpContainer-btn" type=button value="隐藏CCP" class="btn btn-primary btn-sm"
-                                    style="width: 100px" onclick="HideCCP()" /> <input id="ccpContainer-btn" type=button
-                                    value="关闭CCP" class="btn btn-primary btn-sm" style="width: 100px"
-                                    onclick="Terminate()" /><input type=button value="初始化CCP"
-                                    class="btn btn-primary btn-sm" style="margin:4px;width: 100px"
-                                    onclick="init()"></input>
+                                <div class="d-flex">
+                                    <input id="ccpContainer-btn" type="button" value="隐藏CCP"
+                                        class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="HideCCP()">
+                                    <input id="ccpContainer-btn" type="button" value="关闭CCP"
+                                        class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="Terminate()">
+                                    <input type="button" value="初始化CCP" class="btn btn-primary btn-sm"
+                                        style="width: 100px" onclick="init()">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -119,10 +121,13 @@
             </div>
             <div class="row">
                 <div class="col-lg-12">
-                    <div><input type=button id="clear" value="Clear Event Output" class="btn btn-primary  btn-sm"
-                            style="margin:2px;width: 150px" onclick="clearOutput()"><input id="outputContainer-btn"
-                            type=button value="Show Event Output" class="btn btn-primary btn-sm"
-                            style="margin:2px;width: 150px" onclick="ShowOutput()" /></input>
+                    <div class="m-2">
+                        <div class="d-flex">
+                            <input type="button" id="clear" value="Clear Event Output"
+                                class="btn btn-primary btn-sm me-2" style="width: 150px" onclick="clearOutput()">
+                            <input id="outputContainer-btn" type="button" value="Show Event Output"
+                                class="btn btn-primary btn-sm" style="width: 150px" onclick="ShowOutput()">
+                        </div>
                     </div>
                     <textarea id="message" class="form-control" rows="12" cols="50" style="display: none;"></textarea>
                 </div>
