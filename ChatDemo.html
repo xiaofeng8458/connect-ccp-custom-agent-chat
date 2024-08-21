@@ -334,15 +334,6 @@
                 const hours = String(date.getHours()).padStart(2, '0');
                 const minutes = String(date.getMinutes()).padStart(2, '0');
                 const seconds = String(date.getSeconds()).padStart(2, '0');
-                const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
-
-                // Get the timezone offset in minutes
-                const timezoneOffset = date.getTimezoneOffset();
-                const timezoneHours = Math.abs(Math.floor(timezoneOffset / 60));
-                const timezoneMinutes = Math.abs(timezoneOffset % 60);
-
-                // Determine the timezone sign
-                const timezoneSign = timezoneOffset > 0 ? '-' : '+';
 
                 // Format the local time string
                 const localTimeString = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
@@ -353,8 +344,11 @@
             function getConnectingContact() {
                 const table = '<li id="ContactId" class="clearfix">' +
                     '<div class="about">' +
-                    '<div class="name">DisplayName<span id="ContactId-indicator"><span></div>' +
-                    '<div><input type=button value="接受聊天" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="AcceptContact()" /><input type=button value="拒绝聊天" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="RejectContact()" /></div>' +
+                    '<div class="name">DisplayName<span id="ContactId-indicator"></span></div>' +
+                    '<div class="d-flex">' +
+                    '<button class="btn btn-primary btn-sm me-2 mb-2" style="width: 110px" onclick="AcceptContact()">接受聊天</button>' +
+                    '<button class="btn btn-primary btn-sm mb-2" style="width: 110px" onclick="RejectContact()">拒绝聊天</button>' +
+                    '</div>' +
                     '</div>' +
                     '</li>';
 
@@ -364,8 +358,11 @@
             function getConnectedContact() {
                 const table = '<li id="ContactId" class="clearfix">' +
                     '<div class="about">' +
-                    '<div class="name">DisplayName<span id="ContactId-indicator"><span></div>' +
-                    '<div><input type=button value="结束聊天" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="EndContact()" /><input type=button value="结束ACW" class="btn btn-primary btn-sm" style="margin:2px;width: 110px" onclick="ClearContact(\'ContactId\')" /></div>' +
+                    '<div class="name">DisplayName<span id="ContactId-indicator"></span></div>' +
+                    '<div class="d-flex flex-wrap">' +
+                    '<button class="btn btn-primary btn-sm me-2 mb-2" style="width: 110px" onclick="EndContact()">结束聊天</button>' +
+                    '<button class="btn btn-primary btn-sm mb-2" style="width: 110px" onclick="ClearContact(\'ContactId\')">结束ACW</button>' +
+                    '</div>' +
                     '</div>' +
                     '</li>';
 
