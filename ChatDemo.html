@@ -205,10 +205,10 @@
                 c.onConnected(function (c) {
                     logOutput('onConnected event : Contact connected to agent');
 
-                    window.contact = c;
-                    window.agentConnection = c.getAgentConnection();
-
-                    addConnectedContact(c);
+                    if (!window.controllers[c.contactId]) {
+                        addConnectedContact(c);
+                        initChatController(c);
+                    };
                 });
 
                 c.onAccepted(async () => {
@@ -222,6 +222,7 @@
                 if (cnn) {
                     const controller = await cnn.getMediaController();
                     window.controller = controller;
+                    window.controllers[contact.contactId] = controller;
                     window.controller.onMessage(function (response) {
                         logOutput("on message:" + JSON.stringify(response));
                         addChatMessage(response);
@@ -234,6 +235,10 @@
                     const { InitialContactId, NextToken, Transcript } = awsSdkResponse.data;
                     addChatTranscriptMessage(Transcript);
                     logOutput(JSON.stringify(Transcript));
+
+                    window.controllerr.onConnectionLost(function (response) {
+                        logOutput("connection lost:" + JSON.stringify(response));
+                    });
                 }
             }
 
@@ -461,6 +466,7 @@
                 window.isOutputVisible = false;
                 window.agentStates = {};
                 window.timers = {};
+                window.controllers = {};
             }
 
             function logOutput(text) {
