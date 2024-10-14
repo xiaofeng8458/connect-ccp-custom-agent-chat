@@ -109,13 +109,19 @@
                                     <button class="btn btn-primary" onclick="sendChatMessage()">发送</button>
                                 </div>
                             </div>
+                            <div class="mt-3">
+                                <div class="input-group">
+                                    <select id="myDropdown" class="form-select"></select>
+                                    <button class="btn btn-primary" onclick="TransferChat()">转接</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
             </div>
             <div class="col-lg-4">
-                <div class="contact-list">
+                <div class="contact-list mt-3">
                     <ul id="clist" class="list-unstyled chat-list mt-2 mb-0"></ul>
                 </div>
             </div>
@@ -421,6 +427,7 @@
 
                 loadAgentStates();
 
+                loadQuickConnects();
             }
 
             function getCustomerName(contact) {
@@ -467,6 +474,7 @@
                 window.agentStates = {};
                 window.timers = {};
                 window.controllers = {};
+                window.endpoints = [];
             }
 
             function logOutput(text) {
@@ -637,6 +645,7 @@
 
             function loadAgentStates() {
                 const agent = new lily.Agent();
+                const curState = agent.getState().name;
                 const states = agent.getAgentStates();
                 states.sort((a, b) => a.name.localeCompare(b.name));
                 window.agentStates = states;
@@ -649,12 +658,13 @@
                     // Set the value and text of the <option>
                     option.value = i;
                     option.text = states[i].name;
+                    if (option.text == curState) {
+                        option.selected = "selected";
+                    }
 
                     // Add the <option> to the <select>
                     dropdown.add(option);
                 };
-                const curState = agent.getState();
-                SetAgentState(curState);
             }
 
             function handleSelectChange() {
@@ -662,6 +672,61 @@
                 const selectedOption = dropdown.options[dropdown.selectedIndex];
                 const selectedState = selectedOption.text;
                 SetAgentState(selectedState);
+            }
+
+            function loadQuickConnects() {
+                var agent = new lily.Agent();
+                var queuesARNs = agent.getAllQueueARNs();
+                agent.getEndpoints(queuesARNs, {
+                    success: function (data) {
+                        window.endpoints = data.endpoints;
+                        // Get a reference to the dropdown element
+                        const dropdown = document.getElementById("myDropdown");
+                        dropdown.options.length = 0;
+                        // Loop through the options array
+                        for (let i = 0; i < data.endpoints.length; i++) {
+                            // Create a new <option> element
+                            const option = document.createElement("option");
+
+                            // Set the value and text of the <option>
+                            option.value = i;
+                            option.text = data.endpoints[i].name;
+
+                            // Add the <option> to the <select>
+                            dropdown.add(option);
+                        };
+                    },
+                    failure: function (data) {
+                        //alert("Supervisor is unavailable...");
+                    }
+                });
+            }
+
+            function getSelectedEndpoint() {
+                // Get a reference to the dropdown element
+                const dropdown = document.getElementById("myDropdown");
+                // Get the selected option index
+                const selectedIndex = dropdown.selectedIndex;
+
+                // If an option is selected, get its value and text
+                if (selectedIndex !== -1) {
+                    const selectedValue = dropdown.options[selectedIndex].value;
+                    return window.endpoints[selectedValue];
+                } else {
+                    return []
+                }
+            }
+
+            function TransferChat() {
+                const endpoint = getSelectedEndpoint();
+                var agent = new lily.Agent();
+                agent.getContacts(lily.ContactType.CHAT)[0].addConnection(endpoint, {
+                    success: function (data) {
+                    },
+                    failure: function (data) {
+                        alert("Error transfering chat");
+                    }
+                });
             }
         </script>
 </body>
