@@ -121,7 +121,7 @@
 
             </div>
             <div class="col-lg-4">
-                <div class="contact-list mt-3">
+                <div class="contact-list chat-box mt-3">
                     <ul id="clist" class="list-unstyled chat-list mt-2 mb-0"></ul>
                 </div>
             </div>
@@ -211,8 +211,10 @@
                 c.onConnected(function (c) {
                     logOutput('onConnected event : Contact connected to agent');
 
+                    window.contact = c;
+                    addConnectedContact(c);
+
                     if (!window.controllers[c.contactId]) {
-                        addConnectedContact(c);
                         initChatController(c);
                     };
                 });
