@@ -7,12 +7,6 @@
     <script src="https://cdn.jsdelivr.net/npm/amazon-connect-streams@2.13.2/release/connect-streams.js"></script>
     <script type="text/javascript" src="amazon-connect-chat-interface.js"></script>
     <style>
-        .box {
-            /*border: 1px solid #ccc;*/
-            padding: 2px;
-            margin-bottom: 2px;
-        }
-
         /* Add custom styles here */
         .chat-box {
             height: 400px;
@@ -65,41 +59,35 @@
 <body onload="init()">
     <div class="container mt-3">
         <div class="row">
-            <div class="col-lg-4">
+            <div class="col-lg-4 first-column">
                 <div id="ccpContainer">
                     <div id="container-div" style="width: 100%; height: 625px;"></div>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-4 second-column">
                 <div class="container">
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <div class="box">
-                                <div class="d-flex">
-                                    <input id="ccpContainer-btn" type="button" value="隐藏CCP"
-                                        class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="HideCCP()">
-                                    <input id="ccpContainer-btn" type="button" value="关闭CCP"
-                                        class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="Terminate()">
-                                    <input type="button" value="初始化CCP" class="btn btn-primary btn-sm"
-                                        style="width: 100px" onclick="init()">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <div class="box">
-
-                            </div>
-                        </div>
-                    </div>
                     <div class="row">
                         <div class="col-lg-12">
                             <select id="stateDropdown" class="form-select" onchange="handleSelectChange()"></select>
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-12">
+                        <div class="col-lg-12 mt-3">
+
+                            <div class="d-flex">
+                                <input id="ccpContainer-btn" type="button" value="隐藏CCP"
+                                    class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="HideCCP()">
+                                <input id="ccpContainer-btn" type="button" value="关闭CCP"
+                                    class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="Terminate()">
+                                <input type="button" value="初始化CCP" class="btn btn-primary btn-sm" style="width: 100px"
+                                    onclick="init()">
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-12">
                             <div id="txtChatBox" class="chat-box mt-3">
                             </div>
                             <!-- Chat Input -->
@@ -121,7 +109,7 @@
 
             </div>
             <div class="col-lg-4">
-                <div class="contact-list chat-box mt-3">
+                <div class="contact-list chat-box">
                     <ul id="clist" class="list-unstyled chat-list mt-2 mb-0"></ul>
                 </div>
             </div>
@@ -576,6 +564,11 @@
             }
 
             function HideCCP() {
+                const firstColumn = document.querySelector('.first-column');
+                const secondColumn = document.querySelector('.second-column');
+                firstColumn.classList.toggle('d-none');
+                secondColumn.classList.toggle('col-md-6', firstColumn.classList.contains('d-none'));
+
                 window.isCCPVisible = !window.isCCPVisible;
 
                 var containerBtn = document.getElementById("ccpContainer-btn");
