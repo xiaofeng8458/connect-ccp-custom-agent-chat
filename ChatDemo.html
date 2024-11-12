@@ -361,7 +361,7 @@
                     '<div class="about">' +
                     '<div class="name">DisplayName<span id="ContactId-indicator"></span></div>' +
                     '<div class="d-flex flex-wrap">' +
-                    '<button class="btn btn-primary btn-sm me-2 mb-2" style="width: 110px" onclick="EndContact()">结束聊天</button>' +
+                    '<button class="btn btn-primary btn-sm me-2 mb-2" style="width: 110px" onclick="EndContact(\'ContactId\')">结束聊天</button>' +
                     '<button class="btn btn-primary btn-sm mb-2" style="width: 110px" onclick="ClearContact(\'ContactId\')">结束ACW</button>' +
                     '</div>' +
                     '</div>' +
@@ -506,12 +506,12 @@
                 }
             }
 
-            function EndContact() {
-                if (window.contact == {}) {
+            function EndContact(contactId) {
+                c = getContact(contactId);
+                if (!c) {
                     alert("No call is connected");
                 }
                 else {
-                    c = window.contact;
                     var initialConnection = c.getInitialConnection();
                     var thirdParty = c.getSingleActiveThirdPartyConnection();
                     if (initialConnection) {
@@ -605,12 +605,37 @@
                 }
             }
 
-            function Terminate() {
-                var containerDiv = document.getElementById("container-div");
-                connect.core.terminate();
-                var iframe = containerDiv.firstElementChild; // assumes there's nothing else in the container
-                containerDiv.removeChild(iframe);
+            function clearAllContacts() {
+                const agent = new lily.Agent();
+                const contacts = agent.getContacts(lily.ContactType.CHAT);
+                contacts.forEach(function (c) {
+                    c.clear({
+                        success: function () {
+                            removeContact(c.contactId);
+                            clearChatWindow();
+                        },
+                        failure: function (err) {
 
+                        }
+                    });
+                });
+            }
+
+            function Terminate() {
+                clearAllContacts();
+
+                var termTimer = setInterval(() => {
+                    const agent = new lily.Agent();
+                    const contacts = agent.getContacts(lily.ContactType.CHAT);
+                    if (contacts.length == 0) {
+                        clearInterval(termTimer);
+
+                        var containerDiv = document.getElementById("container-div");
+                        connect.core.terminate();
+                        var iframe = containerDiv.firstElementChild; // assumes there's nothing else in the container
+                        containerDiv.removeChild(iframe);
+                    }
+                }, 1000);
             }
 
             function clearChatWindow() {
@@ -619,11 +644,11 @@
             }
 
             function ClearContact(contactId) {
-                if (window.contact == {}) {
+                c = getContact(contactId);
+                if (!c) {
                     alert("No contact is coming");
                 }
                 else {
-                    c = window.contact;
                     c.clear({
                         success: function () {
                             removeContact(contactId);
@@ -722,6 +747,20 @@
                         alert("Error transfering chat");
                     }
                 });
+            }
+
+            function getContact(contactId) {
+                var contact = null
+                const agent = new lily.Agent();
+                const contacts = agent.getContacts(lily.ContactType.CHAT);
+                contacts.forEach(function (item) {
+                    if (contactId == item.contactId) {
+                        contact = item;
+                        return;
+                    }
+
+                });
+                return contact;
             }
         </script>
 </body>
