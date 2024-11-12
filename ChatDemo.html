@@ -459,7 +459,6 @@
                 window.controller = window.controller || {};
                 window.isCCPVisible = true;
                 window.isOutputVisible = false;
-                window.agentStates = {};
                 window.timers = {};
                 window.controllers = {};
                 window.endpoints = [];
@@ -588,8 +587,9 @@
 
             function SetAgentState(stateName) {
                 const agent = new lily.Agent();
-                if (window.agentStates.length > 0) {
-                    const state = window.agentStates.filter(s => s.name === stateName)[0];
+                const states = agent.getAgentStates();
+                if (states.length > 0) {
+                    const state = states.filter(s => s.name === stateName)[0];
                     agent.setState(state, {
                         success: function () {
                         },
@@ -663,7 +663,6 @@
                 const curState = agent.getState().name;
                 const states = agent.getAgentStates();
                 states.sort((a, b) => a.name.localeCompare(b.name));
-                window.agentStates = states;
                 const dropdown = document.getElementById("stateDropdown");
                 dropdown.options.length = 0;
                 for (let i = 0; i < states.length; i++) {
