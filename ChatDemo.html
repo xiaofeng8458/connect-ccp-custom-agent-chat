@@ -68,7 +68,10 @@
                 <div class="container">
                     <div class="row">
                         <div class="col-lg-12">
-                            <select id="stateDropdown" class="form-select" onchange="handleSelectChange()"></select>
+                            <div class="input-group">
+                                <select id="stateDropdown" class="form-select" onchange="handleSelectChange()"></select>
+                                <input type="button" value="退出" class="btn btn-primary btn-sm" onclick="Logout()">
+                            </div>
                         </div>
                     </div>
                     <div class="row">
@@ -755,6 +758,14 @@
 
                 });
                 return contact;
+            }
+
+            function Logout() {
+                fetch("https://connect-us-1.my.connect.aws/connect/logout", { credentials: 'include', mode: 'no-cors' })
+                    .then(() => {
+                        //location.reload();
+                        Terminate();
+                    });
             }
         </script>
 </body>
