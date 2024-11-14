@@ -214,6 +214,10 @@
                     initChatController(c);
                 });
 
+                c.onACW(function (c) {
+                    addConnectedContact(c);
+                });
+
             }
 
             async function initChatController(contact) {
@@ -765,6 +769,7 @@
                     .then(() => {
                         //location.reload();
                         Terminate();
+                        clearChatWindow();
                     });
             }
         </script>
