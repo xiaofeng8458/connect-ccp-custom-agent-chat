@@ -175,7 +175,7 @@
                         },
                         chat: {
                             disableRingtone: false, // optional, defaults to false
-                            ringtoneUrl: "http://127.0.0.1:5502/agent-chat-demo-customized/ringtone.mp3"
+                            ringtoneUrl: "http://127.0.0.1:54093/agent-chat-demo-customized/ringtone.mp3"
                         },
                         pageOptions: { //optional
                             enableAudioDeviceSettings: true, //optional, defaults to 'false'
@@ -767,9 +767,12 @@
             function Logout() {
                 fetch("https://connect-us-1.my.connect.aws/connect/logout", { credentials: 'include', mode: 'no-cors' })
                     .then(() => {
-                        //location.reload();
-                        Terminate();
+                        const eventBus = connect.core.getEventBus();
+                        eventBus.trigger(connect.EventType.TERMINATE);
+
                         clearChatWindow();
+                    }).then(() => {
+                        window.location.reload();
                     });
             }
         </script>
