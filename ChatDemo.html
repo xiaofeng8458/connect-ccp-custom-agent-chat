@@ -192,14 +192,14 @@
             }
 
             function subscribeToContactEvents(c) {
-                c.onConnecting(function (c) {
+                c.onConnecting((c) => {
                     logOutput('onConnecting event : handleContactConnecting');
 
                     window.contact = c;
                     addConnectingContact(c);
                 });
 
-                c.onConnected(function (c) {
+                c.onConnected((c) => {
                     logOutput('onConnected event : Contact connected to agent');
 
                     window.contact = c;
@@ -214,8 +214,22 @@
                     initChatController(c);
                 });
 
-                c.onACW(function (c) {
+                c.onACW((c) => {
                     addConnectedContact(c);
+                });
+
+                c.onEnded((c) => {
+                    logOutput('onEnded event');
+                });
+
+                c.onRefresh((c) => {
+                    logOutput('onRefresh event');
+                });
+
+                c.onMissed((c) => {
+                    logOutput('onMissed event');
+
+                    addMissedContact(c);
                 });
 
             }
@@ -377,6 +391,19 @@
                 return table;
             }
 
+            function getMissedContact() {
+                const table = '<li id="ContactId" class="clearfix">' +
+                    '<div class="about">' +
+                    '<div class="name">DisplayName<span id="ContactId-indicator"></span></div>' +
+                    '<div class="d-flex flex-wrap">' +
+                    '<button class="btn btn-primary btn-sm mb-2" style="width: 110px" onclick="ClearContact(\'ContactId\')">结束</button>' +
+                    '</div>' +
+                    '</div>' +
+                    '</li>';
+
+                return table;
+            }
+
             function removeContact(contactId) {
                 const list = document.getElementById('clist');
                 const item = document.getElementById(contactId);
@@ -409,6 +436,18 @@
                 restart_checker(contact.contactId, true, 'Connected');
             }
 
+            function addMissedContact(contact) {
+                removeContact(contact.contactId);
+
+                var table = getMissedContact();
+                table = table.replace(new RegExp("ContactId", 'g'), contact.contactId);
+                table = table.replace("DisplayName", 'Chat');
+
+                document.getElementById('clist').innerHTML += table;
+
+                restart_checker(contact.contactId, true, 'Missed');
+            }
+
             function subscribeToAgentEvents(agent) {
                 logOutput('Agent login');
 
@@ -420,9 +459,54 @@
                     showAgentStatus('onOffline', agent);
                 });
 
+                agent.onRefresh((event) => {
+                    logOutput('Agent onRefresh');
+                });
+
+                agent.onRoutable((event) => {
+                    logOutput('Agent onRoutable');
+                });
+
+                agent.onNotRoutable((event) => {
+                    logOutput('Agent onNotRoutable');
+                });
+
+                agent.onSoftphoneError((event) => {
+                    logOutput('Agent onSoftphoneError');
+                });
+
+                agent.onWebSocketConnectionLost((event) => {
+                    logOutput('Agent onWebSocketConnectionLost');
+                });
+
+                agent.onWebSocketConnectionGained((event) => {
+                    logOutput('Agent onWebSocketConnectionGained');
+                });
+
+                agent.onAfterCallWork((event) => {
+                    logOutput('Agent onAfterCallWork');
+                });
+
                 loadAgentStates();
 
                 loadQuickConnects();
+
+                loadMissedContact();
+            }
+
+            function loadMissedContact() {
+                var isMissed = false;
+
+                const agent = new lily.Agent();
+                const contacts = agent.getContacts();
+                const contact = contacts.filter(c => c.getState().type === 'error')[0];
+                if (contact) {
+                    isMissed = true;
+                }
+
+                if (isMissed) {
+                    addMissedContact(contact);
+                }
             }
 
             function getCustomerName(contact) {
@@ -753,7 +837,7 @@
             function getContact(contactId) {
                 var contact = null
                 const agent = new lily.Agent();
-                const contacts = agent.getContacts(lily.ContactType.CHAT);
+                const contacts = agent.getContacts();
                 contacts.forEach(function (item) {
                     if (contactId == item.contactId) {
                         contact = item;
