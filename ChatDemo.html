@@ -132,9 +132,11 @@
         </div>
 
         <script type="text/javascript">
-            const instanceURL = "https://connect-us-1.my.connect.aws/ccp-v2/";
+            const instanceURL = "https://connect-us-1.my.connect.aws/";
+            const instanceCCPURL = instanceURL + "ccp-v2/";
             const instanceRegion = "us-east-1";
             const loginURL = "";
+            const logoutURL = "https://connect-us-1.my.connect.aws/connect/logout";
 
             // initialize the streams api
             function init() {
@@ -144,7 +146,7 @@
                 initialize();
 
                 // initialize the ccp
-                initCore(instanceURL, loginURL, instanceRegion);
+                initCore(instanceCCPURL, loginURL, instanceRegion);
 
                 connect.contact(subscribeToContactEvents);
 
@@ -152,11 +154,11 @@
 
             }
 
-            function initCore(instanceURL, loginURL, instanceRegion) {
+            function initCore(instanceCCPURL, loginURL, instanceRegion) {
                 var containerDiv = document.getElementById("container-div");
                 try {
                     connect.core.initCCP(containerDiv, {
-                        ccpUrl: instanceURL,            // REQUIRED
+                        ccpUrl: instanceCCPURL,            // REQUIRED
                         loginUrl: loginURL,
                         loginPopup: true,               // optional, defaults to `true`
                         loginPopupAutoClose: true,      // optional, defaults to `false`
@@ -240,9 +242,9 @@
                     const controller = await cnn.getMediaController();
                     window.controller = controller;
                     window.controllers[contact.contactId] = controller;
-                    window.controller.onMessage(function (response) {
+                    window.controller.onMessage(async function (response) {
                         logOutput("on message:" + JSON.stringify(response));
-                        addChatMessage(response);
+                        await addChatMessage(response);
                     });
 
                     const awsSdkResponse = await controller.getTranscript({
@@ -306,12 +308,51 @@
                 return currentTime;
             }
 
-            function getChatMessage(response, role) {
+            async function getChatMessage(response, role) {
                 if (response.data) {
-                    if (response.data.Type == 'MESSAGE') {
-                        var table = role == 'sent' ? getSentMessage() : getReceivedMessage();
-                        table = table.replace("DisplayName", response.data.DisplayName);
-                        table = table.replace("Content", response.data.Content);
+                    // Handle MESSAGE type
+                    if (response.data.Type === 'MESSAGE') {
+                        var table = role === 'sent' ? getSentMessage() : getReceivedMessage();
+                        table = table.replace("DisplayName", response.data.DisplayName || 'Unknown');
+                        table = table.replace("Content", response.data.Content || '');
+                        table = table.replace("Time", getCurrentTime());
+
+                        return table;
+                    }
+
+                    // Handle ATTACHMENT type
+                    if (response.data.Type === 'ATTACHMENT' && response.data.Attachments && response.data.Attachments.length > 0) {
+                        var table = role === 'sent' ? getSentMessage() : getReceivedMessage();
+                        table = table.replace("DisplayName", response.data.DisplayName || 'Unknown');
+
+                        // Create attachment links
+                        var content = '';
+
+                        for (const attachment of response.data.Attachments) {
+                            // Create a hyperlink for each attachment
+                            var attachmentContent = '';
+
+                            const awsSdkResponse = await window.controller.downloadAttachment({
+                                attachmentId: attachment.AttachmentId
+                            });
+                            var attachmentUrl = URL.createObjectURL(awsSdkResponse);
+
+                            if (attachment.ContentType == "image/png") {
+                                var attachmentImg = '<img src="' +
+                                    attachmentUrl + '" style="max-width: 100%; height: auto;"></img>';
+                                attachmentContent += attachmentImg;
+                            }
+
+                            var attachmentLink = '<a href="' +
+                                attachmentUrl + '" download="' +
+                                attachment.AttachmentName + '" >' +
+                                attachment.AttachmentName + '</a>';
+                            attachmentContent += attachmentLink;
+
+                            content += '<div class="attachment-item">' + attachmentContent + '</div>';
+                        }
+
+                        table = table.replace("Content", content || '');
                         table = table.replace("Time", getCurrentTime());
 
                         return table;
@@ -321,13 +362,13 @@
                 return '';
             }
 
-            function addChatMessage(response) {
-                var message = getChatMessage(response, response.data.ParticipantRole == 'AGENT' ? 'sent' : 'received');
+            async function addChatMessage(response) {
+                var message = await getChatMessage(response, response.data.ParticipantRole == 'AGENT' ? 'sent' : 'received');
                 document.getElementById('txtChatBox').innerHTML += message;
             }
 
-            function addChatTranscriptMessage(response) {
-                response.forEach(item => {
+            async function addChatTranscriptMessage(response) {
+                for (const item of response) {
                     const type = item.Type;
                     if (type == 'MESSAGE') {
                         const participantRole = item.ParticipantRole;
@@ -342,7 +383,45 @@
 
                         document.getElementById('txtChatBox').innerHTML += table;
                     }
-                });
+                    if (type == 'ATTACHMENT') {
+                        const participantRole = item.ParticipantRole;
+                        const displayName = item.DisplayName;
+                        const localTime = convertToLocalTime(item.AbsoluteTime);
+
+                        var table = participantRole == 'CUSTOMER' ? getReceivedMessage() : getSentMessage();
+                        table = table.replace("DisplayName", displayName);
+
+                        var content = "";
+                        for (const attachment of item.Attachments) {
+                            // Create a hyperlink for each attachment
+                            var attachmentContent = '';
+
+                            const awsSdkResponse = await window.controller.downloadAttachment({
+                                attachmentId: attachment.AttachmentId
+                            });
+                            var attachmentUrl = URL.createObjectURL(awsSdkResponse);
+
+                            if (attachment.ContentType == "image/png") {
+                                var attachmentImg = '<img src="' +
+                                    attachmentUrl + '" style="max-width: 100%; height: auto;"></img>';
+                                attachmentContent += attachmentImg;
+                            }
+
+                            var attachmentLink = '<a href="' +
+                                attachmentUrl + '" download="' +
+                                attachment.AttachmentName + '" >' +
+                                attachment.AttachmentName + '</a>';
+                            attachmentContent += attachmentLink;
+
+                            content += '<div class="attachment-item">' + attachmentContent + '</div>';
+                        }
+
+                        table = table.replace("Content", content);
+                        table = table.replace("Time", localTime);
+
+                        document.getElementById('txtChatBox').innerHTML += table;
+                    }
+                }
             }
 
             function convertToLocalTime(utcTimeString) {
@@ -849,7 +928,7 @@
             }
 
             function Logout() {
-                fetch("https://connect-us-1.my.connect.aws/connect/logout", { credentials: 'include', mode: 'no-cors' })
+                fetch(logoutURL, { credentials: 'include', mode: 'no-cors' })
                     .then(() => {
                         const eventBus = connect.core.getEventBus();
                         eventBus.trigger(connect.EventType.TERMINATE);
