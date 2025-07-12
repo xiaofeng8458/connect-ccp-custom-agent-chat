@@ -4,132 +4,261 @@
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/amazon-connect-streams@2.13.2/release/connect-streams.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/amazon-connect-streams@2.18.3/release/connect-streams.js"></script>
     <script type="text/javascript" src="amazon-connect-chat-interface.js"></script>
     <style>
-        /* Add custom styles here */
-        .chat-box {
-            height: 400px;
-            overflow-y: scroll;
-            border: 1px solid #ccc;
-            padding: 15px;
-            border-radius: 8px;
+        body { background: #fafafa; }
+        .container { max-width: 1200px; }
+        
+        /* Column 1: Participants */
+        .participants-column {
+            border-right: 1px solid #dbdbdb;
+            background: white;
+            height: 100vh;
+            overflow-y: auto;
         }
-
-        .chat-message {
-            margin-bottom: 10px;
+        
+        .participants-header {
+            padding: 20px;
+            border-bottom: 1px solid #dbdbdb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-
-        .chat-message .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        
+        .auth-buttons {
+            display: flex;
+            gap: 8px;
         }
-
-        .contact-list {
-            -moz-transition: .5s;
-            -o-transition: .5s;
-            -webkit-transition: .5s;
-            transition: .5s;
-            border: 1px solid #ccc;
-            height: 100%;
+        
+        .auth-buttons .btn {
+            font-size: 12px;
+            padding: 6px 12px;
         }
-
-        .contact-list .chat-list li {
-            padding: 10px 15px;
-            list-style: none;
-            border-radius: 3px;
-        }
-
-        .contact-list .chat-list li:hover {
-            background: #efefef;
+        
+        .participant-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid #efefef;
             cursor: pointer;
         }
-
-        .contact-list .chat-list li.active {
-            background: #efefef;
+        
+        .participant-item:hover {
+            background: #f5f5f5;
         }
-
-        .contact-list .chat-list li .name {
-            font-size: 15px;
+        
+        .participant-item.active {
+            background: #e3f2fd;
+        }
+        
+        /* Column 2: Chat */
+        .chat-column {
+            border-right: 1px solid #dbdbdb;
+            background: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #dbdbdb;
+            background: white;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: white;
+        }
+        
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #dbdbdb;
+            background: white;
+        }
+        
+        .message-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #dbdbdb;
+            border-radius: 22px;
+            padding: 8px 16px;
+        }
+        
+        .message-input-group input {
+            border: none;
+            outline: none;
+            flex: 1;
+        }
+        
+        .input-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .input-actions button {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        /* Column 3: Participant Info */
+        .info-column {
+            background: white;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .info-header {
+            padding: 20px;
+            border-bottom: 1px solid #dbdbdb;
+            text-align: center;
+        }
+        
+        .info-content {
+            padding: 20px;
+        }
+        
+        .info-item {
+            margin-bottom: 16px;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #8e8e8e;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .info-value {
+            margin-top: 4px;
+            font-size: 14px;
+        }
+        
+        /* Chat messages */
+        .chat-message {
+            margin-bottom: 16px;
+        }
+        
+        .message-sent {
+            text-align: right;
+        }
+        
+        .message-received {
+            text-align: left;
+        }
+        
+        .message-bubble {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .message-sent .message-bubble {
+            background: #0095f6;
+            color: white;
+        }
+        
+        .message-received .message-bubble {
+            background: #efefef;
+            color: black;
+        }
+        
+        /* CCP Container */
+        #container-div {
+            margin-bottom: 20px;
         }
     </style>
 </head>
 
 <body onload="init()">
-    <div class="container mt-3">
+    <div class="container-fluid">
         <div class="row">
-            <div class="col-lg-4 first-column">
-                <div id="ccpContainer">
-                    <div id="container-div" style="width: 100%; height: 625px;"></div>
-                </div>
-            </div>
-            <div class="col-lg-4 second-column">
-                <div class="container">
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <div class="input-group">
-                                <select id="stateDropdown" class="form-select" onchange="handleSelectChange()"></select>
-                                <input type="button" value="退出" class="btn btn-primary btn-sm" onclick="Logout()">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-lg-12 mt-3">
-
-                            <div class="d-flex">
-                                <input id="ccpContainer-btn" type="button" value="隐藏CCP"
-                                    class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="HideCCP()">
-                                <input id="ccpContainer-btn" type="button" value="关闭CCP"
-                                    class="btn btn-primary btn-sm me-2" style="width: 100px" onclick="Terminate()">
-                                <input type="button" value="初始化CCP" class="btn btn-primary btn-sm" style="width: 100px"
-                                    onclick="init()">
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <div id="txtChatBox" class="chat-box mt-3">
-                            </div>
-                            <!-- Chat Input -->
-                            <div class="mt-3">
-                                <div class="input-group">
-                                    <input type="text" class="form-control" placeholder="输入消息..." id="txtMessage">
-                                    <button class="btn btn-primary" onclick="sendChatMessage()">发送</button>
-                                </div>
-                            </div>
-                            <div class="mt-3">
-                                <div class="input-group">
-                                    <select id="myDropdown" class="form-select"></select>
-                                    <button class="btn btn-primary" onclick="TransferChat()">转接</button>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Column 1: Chat Participants -->
+            <div class="col-3 p-0 participants-column">
+                <div class="participants-header">
+                    <h6 class="mb-0">聊天参与者</h6>
+                    <div class="auth-buttons">
+                        <button class="btn btn-outline-primary" onclick="init()">登录</button>
+                        <button class="btn btn-outline-secondary" onclick="Logout()">退出</button>
+                        <button class="btn btn-outline-info" id="ccpContainer-btn" onclick="showCCP()">显示CCP</button>
                     </div>
                 </div>
-
+                
+                <!-- CCP Container -->
+                <div id="container-div" style="width: 100%; height: 300px; display: none;"></div>
+                
+                <!-- Participants List -->
+                <div id="participantsList">
+                    <ul id="clist" class="list-unstyled mb-0"></ul>
+                </div>
             </div>
-            <div class="col-lg-4">
-                <div class="contact-list chat-box">
-                    <ul id="clist" class="list-unstyled chat-list mt-2 mb-0"></ul>
+            
+            <!-- Column 2: Chat Messages -->
+            <div class="col-6 p-0 chat-column">
+                <div class="chat-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">聊天消息</h6>
+                        <select id="stateDropdown" class="form-select form-select-sm" style="width: auto;" onchange="handleSelectChange()"></select>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="txtChatBox">
+                    <!-- Messages will be displayed here -->
+                </div>
+                
+                <div class="chat-input">
+                    <div class="message-input-group">
+                        <div class="input-actions">
+                            <button title="附件">📎</button>
+                            <button title="表情">😊</button>
+                        </div>
+                        <input type="text" placeholder="输入消息..." id="txtMessage" onkeypress="if(event.key==='Enter') sendChatMessage()">
+                        <button onclick="sendChatMessage()" style="background: #0095f6; color: white; border: none; border-radius: 4px; padding: 6px 12px;">发送</button>
+                    </div>
+                    <div class="mt-2">
+                        <div class="input-group input-group-sm">
+                            <select id="myDropdown" class="form-select"></select>
+                            <button class="btn btn-outline-primary" onclick="TransferChat()">转接</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Column 3: Participant Info -->
+            <div class="col-3 p-0 info-column">
+                <div class="info-header">
+                    <h6 class="mb-0">参与者信息</h6>
+                </div>
+                
+                <div class="info-content" id="participantInfo">
+                    <div class="info-item">
+                        <div class="info-label">姓名</div>
+                        <div class="info-value" id="participantName">未选择参与者</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">邮箱</div>
+                        <div class="info-value" id="participantEmail">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">状态</div>
+                        <div class="info-value" id="participantStatus">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">联系ID</div>
+                        <div class="info-value" id="participantContactId">-</div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col-lg-12">
-                <div class="m-2">
-                    <div class="d-flex">
-                        <input type="button" id="clear" value="Clear Event Output" class="btn btn-primary btn-sm me-2"
-                            style="width: 150px" onclick="clearOutput()">
-                        <input id="outputContainer-btn" type="button" value="Show Event Output"
-                            class="btn btn-primary btn-sm" style="width: 150px" onclick="ShowOutput()">
-                    </div>
-                </div>
-                <textarea id="message" class="form-control" rows="12" cols="50" style="display: none;"></textarea>
-            </div>
-        </div>
+        
+        <!-- Hidden debug output -->
+        <textarea id="message" style="display: none;"></textarea>
 
         <script type="text/javascript">
             const instanceURL = "https://connect-us-1.my.connect.aws/";
@@ -274,27 +403,17 @@
             }
 
             function getReceivedMessage() {
-                const table = '<div class="d-flex flex-row justify-content-start">' +
-                    '<span>DisplayName</span>' +
-                    '</div>' +
-                    '<div class="d-flex flex-row justify-content-start">' +
-                    '<div>' +
-                    '<p class="small p-2 ms-3 mb-1 rounded-3 bg-body-tertiary">Content</p>' +
-                    '<p class="small ms-3 mb-3 rounded-3 text-muted">Time</p>' +
-                    '</div>' +
+                const table = '<div class="chat-message message-received">' +
+                    '<div class="message-bubble">Content</div>' +
+                    '<div class="text-muted small mt-1">DisplayName · Time</div>' +
                     '</div>'
                 return table;
             }
 
             function getSentMessage() {
-                const table = '<div class="d-flex flex-row justify-content-end">' +
-                    '<span>DisplayName</span>' +
-                    '</div>' +
-                    '<div class="d-flex flex-row justify-content-end mb-4 pt-1">' +
-                    '<div>' +
-                    '<p class="small p-2 me-3 mb-1 text-white rounded-3 bg-primary">Content</p>' +
-                    '<p class="small me-3 mb-3 rounded-3 text-muted d-flex justify-content-end">Time</p>' +
-                    '</div>' +
+                const table = '<div class="chat-message message-sent">' +
+                    '<div class="message-bubble">Content</div>' +
+                    '<div class="text-muted small mt-1">Time</div>' +
                     '</div>'
                 return table;
             }
@@ -494,37 +613,114 @@
             function addConnectingContact(contact) {
                 removeContact(contact.contactId);
 
-                var table = getConnectingContact();
-                table = table.replace(new RegExp("ContactId", 'g'), contact.contactId);
-                table = table.replace("DisplayName", getCustomerName(contact));
-
-                document.getElementById('clist').innerHTML += table;
-
-                restart_checker(contact.contactId, true, 'Connecting');
+                const participantItem = document.createElement('li');
+                participantItem.id = contact.contactId;
+                participantItem.className = 'participant-item';
+                participantItem.onclick = () => selectParticipant(contact);
+                
+                participantItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">${getCustomerName(contact)}</div>
+                            <div class="text-muted small" id="${contact.contactId}-indicator">连接中...</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-success btn-sm me-1" onclick="AcceptContact()">接受</button>
+                            <button class="btn btn-danger btn-sm" onclick="RejectContact()">拒绝</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('clist').appendChild(participantItem);
+                restart_checker(contact.contactId, true, '连接中');
             }
 
             function addConnectedContact(contact) {
                 removeContact(contact.contactId);
 
-                var table = getConnectedContact();
-                table = table.replace(new RegExp("ContactId", 'g'), contact.contactId);
-                table = table.replace("DisplayName", getCustomerName(contact));
-
-                document.getElementById('clist').innerHTML += table;
-
-                restart_checker(contact.contactId, true, 'Connected');
+                const participantItem = document.createElement('li');
+                participantItem.id = contact.contactId;
+                participantItem.className = 'participant-item';
+                participantItem.onclick = () => selectParticipant(contact);
+                
+                participantItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">${getCustomerName(contact)}</div>
+                            <div class="text-success small" id="${contact.contactId}-indicator">已连接</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-danger btn-sm me-1" onclick="EndContact('${contact.contactId}')">结束</button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="ClearContact('${contact.contactId}')">清除</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('clist').appendChild(participantItem);
+                restart_checker(contact.contactId, true, '已连接');
             }
 
             function addMissedContact(contact) {
                 removeContact(contact.contactId);
 
-                var table = getMissedContact();
-                table = table.replace(new RegExp("ContactId", 'g'), contact.contactId);
-                table = table.replace("DisplayName", 'Chat');
-
-                document.getElementById('clist').innerHTML += table;
-
-                restart_checker(contact.contactId, true, 'Missed');
+                const participantItem = document.createElement('li');
+                participantItem.id = contact.contactId;
+                participantItem.className = 'participant-item';
+                participantItem.onclick = () => selectParticipant(contact);
+                
+                participantItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">聊天</div>
+                            <div class="text-warning small" id="${contact.contactId}-indicator">未接</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="ClearContact('${contact.contactId}')">清除</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('clist').appendChild(participantItem);
+                restart_checker(contact.contactId, true, '未接');
+            }
+            
+            function selectParticipant(contact) {
+                // Remove active class from all participants
+                document.querySelectorAll('.participant-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to selected participant
+                document.getElementById(contact.contactId).classList.add('active');
+                
+                // Update participant info
+                document.getElementById('participantName').textContent = getCustomerName(contact);
+                document.getElementById('participantContactId').textContent = contact.contactId;
+                document.getElementById('participantStatus').textContent = contact.getState().type;
+                document.getElementById('participantEmail').textContent = getCustomerEmail(contact) || '-';
+            }
+            
+            function getCustomerEmail(contact) {
+                try {
+                    var c1 = contact.getConnections()[1];
+                    var info = c1.getMediaInfo().originalInfo;
+                    return info ? info.customerEmail : null;
+                } catch (e) {
+                    return null;
+                }
+            }
+            
+            function showCCP() {
+                const ccpDiv = document.getElementById('container-div');
+                if (ccpDiv.style.display === 'none') {
+                    ccpDiv.style.display = 'block';
+                } else {
+                    ccpDiv.style.display = 'none';
+                }
+                ccpDiv.style.height = ccpDiv.style.display=='block' ? "625px" : "100%";
+                
+                var containerBtn = document.getElementById('ccpContainer-btn');
+                containerBtn.textContent = ccpDiv.style.display=='block' ? "隐藏CCP" : "显示CCP";
             }
 
             function subscribeToAgentEvents(agent) {
@@ -728,21 +924,6 @@
 
             function padZero(value) {
                 return value.toString().padStart(2, '0');
-            }
-
-            function HideCCP() {
-                const firstColumn = document.querySelector('.first-column');
-                const secondColumn = document.querySelector('.second-column');
-                firstColumn.classList.toggle('d-none');
-                secondColumn.classList.toggle('col-md-6', firstColumn.classList.contains('d-none'));
-
-                window.isCCPVisible = !window.isCCPVisible;
-
-                var containerBtn = document.getElementById("ccpContainer-btn");
-                containerBtn.value = window.isCCPVisible ? "隐藏 CCP" : "显示 CCP";
-
-                var containerDiv = document.getElementById("container-div");
-                containerDiv.style = window.isCCPVisible ? "width: 100%; height: 625px;display:block" : "width: 100%; height: 100%;display:none";
             }
 
             function ShowOutput() {
