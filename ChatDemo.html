@@ -48,6 +48,23 @@
         
         .participant-item.active {
             background: #e3f2fd;
+            border-left: 3px solid #0095f6;
+        }
+        
+        .participant-item.new-incoming {
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            animation: pulse 2s infinite;
+        }
+        
+        .participant-item.new-incoming .fw-bold {
+            color: #856404;
+        }
+        
+        @keyframes pulse {
+            0% { background-color: #fff3cd; }
+            50% { background-color: #ffeaa7; }
+            100% { background-color: #fff3cd; }
         }
         
         /* Column 2: Chat */
@@ -369,11 +386,17 @@
                 const cnn = contact.getAgentConnection();
                 if (cnn) {
                     const controller = await cnn.getMediaController();
-                    window.controller = controller;
                     window.controllers[contact.contactId] = controller;
-                    window.controller.onMessage(async function (response) {
+                    
+                    // Set as current if no current contact
+                    if (!window.currentContactId) {
+                        window.currentContactId = contact.contactId;
+                        window.controller = controller;
+                    }
+                    
+                    controller.onMessage(async function (response) {
                         logOutput("on message:" + JSON.stringify(response));
-                        await addChatMessage(response);
+                        await addChatMessage(response, contact.contactId);
                     });
 
                     const awsSdkResponse = await controller.getTranscript({
@@ -381,10 +404,10 @@
                         sortOrder: "ASCENDING"
                     });
                     const { InitialContactId, NextToken, Transcript } = awsSdkResponse.data;
-                    addChatTranscriptMessage(Transcript);
+                    await addChatTranscriptMessage(Transcript, contact.contactId);
                     logOutput(JSON.stringify(Transcript));
 
-                    window.controllerr.onConnectionLost(function (response) {
+                    controller.onConnectionLost(function (response) {
                         logOutput("connection lost:" + JSON.stringify(response));
                     });
                 }
@@ -481,12 +504,27 @@
                 return '';
             }
 
-            async function addChatMessage(response) {
+            async function addChatMessage(response, contactId = null) {
                 var message = await getChatMessage(response, response.data.ParticipantRole == 'AGENT' ? 'sent' : 'received');
-                document.getElementById('txtChatBox').innerHTML += message;
+                const targetContactId = contactId || window.currentContactId;
+                
+                if (targetContactId) {
+                    // Store message for this contact
+                    if (!window.chatMessages[targetContactId]) {
+                        window.chatMessages[targetContactId] = '';
+                    }
+                    window.chatMessages[targetContactId] += message;
+                    
+                    // Only update display if this is the current contact
+                    if (targetContactId === window.currentContactId) {
+                        document.getElementById('txtChatBox').innerHTML = window.chatMessages[targetContactId];
+                        document.getElementById('txtChatBox').scrollTop = document.getElementById('txtChatBox').scrollHeight;
+                    }
+                }
             }
 
-            async function addChatTranscriptMessage(response) {
+            async function addChatTranscriptMessage(response, contactId) {
+                let messages = '';
                 for (const item of response) {
                     const type = item.Type;
                     if (type == 'MESSAGE') {
@@ -500,7 +538,7 @@
                         table = table.replace("Content", content);
                         table = table.replace("Time", localTime);
 
-                        document.getElementById('txtChatBox').innerHTML += table;
+                        messages += table;
                     }
                     if (type == 'ATTACHMENT') {
                         const participantRole = item.ParticipantRole;
@@ -538,8 +576,17 @@
                         table = table.replace("Content", content);
                         table = table.replace("Time", localTime);
 
-                        document.getElementById('txtChatBox').innerHTML += table;
+                        messages += table;
                     }
+                }
+                
+                // Store messages for this contact
+                window.chatMessages[contactId] = messages;
+                
+                // Only update display if this is the current contact
+                if (contactId === window.currentContactId) {
+                    document.getElementById('txtChatBox').innerHTML = messages;
+                    document.getElementById('txtChatBox').scrollTop = document.getElementById('txtChatBox').scrollHeight;
                 }
             }
 
@@ -615,7 +662,7 @@
 
                 const participantItem = document.createElement('li');
                 participantItem.id = contact.contactId;
-                participantItem.className = 'participant-item';
+                participantItem.className = 'participant-item new-incoming';
                 participantItem.onclick = () => selectParticipant(contact);
                 
                 participantItem.innerHTML = `
@@ -658,6 +705,11 @@
                 
                 document.getElementById('clist').appendChild(participantItem);
                 restart_checker(contact.contactId, true, '已连接');
+                
+                // Auto-select if no current contact
+                if (!window.currentContactId) {
+                    selectParticipant(contact);
+                }
             }
 
             function addMissedContact(contact) {
@@ -690,14 +742,33 @@
                     item.classList.remove('active');
                 });
                 
-                // Add active class to selected participant
-                document.getElementById(contact.contactId).classList.add('active');
+                const participantElement = document.getElementById(contact.contactId);
+                if (participantElement) {
+                    // Remove new-incoming highlight when selected
+                    participantElement.classList.remove('new-incoming');
+                    // Add active class to selected participant
+                    participantElement.classList.add('active');
+                }
+                
+                // Update current contact and controller
+                window.currentContactId = contact.contactId;
+                window.contact = contact;
+                window.controller = window.controllers[contact.contactId];
                 
                 // Update participant info
                 document.getElementById('participantName').textContent = getCustomerName(contact);
                 document.getElementById('participantContactId').textContent = contact.contactId;
                 document.getElementById('participantStatus').textContent = contact.getState().type;
                 document.getElementById('participantEmail').textContent = getCustomerEmail(contact) || '-';
+                
+                // Load chat messages for this contact
+                loadChatMessages(contact.contactId);
+            }
+            
+            function loadChatMessages(contactId) {
+                const chatBox = document.getElementById('txtChatBox');
+                chatBox.innerHTML = window.chatMessages[contactId] || '';
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
             
             function getCustomerEmail(contact) {
@@ -828,6 +899,8 @@
                 window.timers = {};
                 window.controllers = {};
                 window.endpoints = [];
+                window.chatMessages = {}; // Store messages by contactId
+                window.currentContactId = null;
             }
 
             function logOutput(text) {
@@ -847,6 +920,11 @@
                     c = window.contact;
                     c.accept({
                         success: function () {
+                            // Remove new-incoming highlight after accepting
+                            const participantElement = document.getElementById(c.contactId);
+                            if (participantElement) {
+                                participantElement.classList.remove('new-incoming');
+                            }
                         },
                         failure: function (err) {
                         }
@@ -862,6 +940,8 @@
                     c = window.contact;
                     c.reject({
                         success: function () {
+                            // Remove participant from list after rejecting
+                            removeContact(c.contactId);
                         },
                         failure: function (err) {
                         }
@@ -984,8 +1064,14 @@
                 }, 1000);
             }
 
-            function clearChatWindow() {
-                document.getElementById('txtChatBox').innerHTML = '';
+            function clearChatWindow(contactId = null) {
+                const targetContactId = contactId || window.currentContactId;
+                if (targetContactId) {
+                    delete window.chatMessages[targetContactId];
+                    if (targetContactId === window.currentContactId) {
+                        document.getElementById('txtChatBox').innerHTML = '';
+                    }
+                }
                 document.getElementById('txtMessage').value = '';
             }
 
@@ -998,7 +1084,7 @@
                     c.clear({
                         success: function () {
                             removeContact(contactId);
-                            clearChatWindow();
+                            clearChatWindow(contactId);
                         },
                         failure: function (err) {
 
