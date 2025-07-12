@@ -204,6 +204,7 @@
                         <button class="btn btn-outline-primary" onclick="init()">登录</button>
                         <button class="btn btn-outline-secondary" onclick="Logout()">退出</button>
                         <button class="btn btn-outline-info" id="ccpContainer-btn" onclick="showCCP()">显示CCP</button>
+                        <button class="btn btn-outline-warning" id="logContainer-btn" onclick="showLog()">显示日志</button>
                     </div>
                 </div>
                 
@@ -213,6 +214,15 @@
                 <!-- Participants List -->
                 <div id="participantsList">
                     <ul id="clist" class="list-unstyled mb-0"></ul>
+                </div>
+                
+                <!-- Log Container -->
+                <div id="logContainer" style="display: none; border-top: 1px solid #dbdbdb; padding: 10px; background: #f8f9fa;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">系统日志</small>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearOutput()">清除</button>
+                    </div>
+                    <textarea id="logDisplay" readonly style="width: 100%; height: 200px; font-size: 11px; border: 1px solid #ddd; border-radius: 4px; padding: 8px; resize: none;"></textarea>
                 </div>
             </div>
             
@@ -251,6 +261,18 @@
             <div class="col-3 p-0 info-column">
                 <div class="info-header">
                     <h6 class="mb-0">参与者信息</h6>
+                </div>
+                
+                <!-- Agent Login Info -->
+                <div id="agentInfo" style="padding: 15px; border-bottom: 1px solid #dbdbdb; background: #f8f9fa; display: none;">
+                    <div class="info-item">
+                        <div class="info-label">登录用户</div>
+                        <div class="info-value" id="agentName">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">登录时间</div>
+                        <div class="info-value" id="loginTime">-</div>
+                    </div>
                 </div>
                 
                 <div class="info-content" id="participantInfo">
@@ -796,6 +818,9 @@
 
             function subscribeToAgentEvents(agent) {
                 logOutput('Agent login');
+                
+                // Show agent login info
+                showAgentLoginInfo(agent);
 
                 agent.onStateChange((event) => {
                     showAgentStatus('onStateChange', agent);
@@ -803,6 +828,7 @@
 
                 agent.onOffline((event) => {
                     showAgentStatus('onOffline', agent);
+                    hideAgentLoginInfo();
                 });
 
                 agent.onRefresh((event) => {
@@ -906,10 +932,56 @@
             function logOutput(text) {
                 var textarea = document.getElementById("message");
                 textarea.value += text + "\n";
+                
+                // Also update the visible log display if it's shown
+                var logDisplay = document.getElementById("logDisplay");
+                if (logDisplay) {
+                    logDisplay.value = textarea.value;
+                    logDisplay.scrollTop = logDisplay.scrollHeight;
+                }
             }
 
-            function clearOutput(text) {
+            function clearOutput() {
                 document.getElementById('message').value = "";
+                var logDisplay = document.getElementById("logDisplay");
+                if (logDisplay) {
+                    logDisplay.value = "";
+                }
+            }
+            
+            function showLog() {
+                const logContainer = document.getElementById('logContainer');
+                const logBtn = document.getElementById('logContainer-btn');
+                const logDisplay = document.getElementById('logDisplay');
+                
+                if (logContainer.style.display === 'none') {
+                    logContainer.style.display = 'block';
+                    logBtn.textContent = '隐藏日志';
+                    // Sync log content
+                    logDisplay.value = document.getElementById('message').value;
+                    logDisplay.scrollTop = logDisplay.scrollHeight;
+                } else {
+                    logContainer.style.display = 'none';
+                    logBtn.textContent = '显示日志';
+                }
+            }
+            
+            function showAgentLoginInfo(agent) {
+                const agentInfo = document.getElementById('agentInfo');
+                const agentName = document.getElementById('agentName');
+                const loginTime = document.getElementById('loginTime');
+                
+                agentName.textContent = agent.getName() || '未知用户';
+                loginTime.textContent = new Date().toLocaleString('zh-CN');
+                agentInfo.style.display = 'block';
+                
+                logOutput('用户登录: ' + agentName.textContent + ' 于 ' + loginTime.textContent);
+            }
+            
+            function hideAgentLoginInfo() {
+                const agentInfo = document.getElementById('agentInfo');
+                agentInfo.style.display = 'none';
+                logOutput('用户已退出登录');
             }
 
             function AcceptContact() {
@@ -1195,6 +1267,7 @@
             }
 
             function Logout() {
+                hideAgentLoginInfo();
                 fetch(logoutURL, { credentials: 'include', mode: 'no-cors' })
                     .then(() => {
                         const eventBus = connect.core.getEventBus();
