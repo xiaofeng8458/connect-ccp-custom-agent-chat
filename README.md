@@ -31,13 +31,15 @@ npx http-server -p 8000
 
 ## CloudFront 部署方案
 
-### 自动部署
+### 自动部署（安全配置）
+
+使用Origin Access Control (OAC) 确保安全性：
 
 ```bash
 # 1. 设置执行权限
 chmod +x deploy.sh update-config.sh
 
-# 2. 执行自动部署
+# 2. 执行安全部署
 ./deploy.sh
 
 # 3. 更新配置
@@ -54,8 +56,23 @@ aws s3 mb s3://$BUCKET_NAME --region us-east-1
 aws s3 website s3://$BUCKET_NAME --index-document ChatDemo.html
 ```
 
-#### 2. 配置存储桶策略
+#### 2. 配置安全访问
 
+**方案A: 使用OAC（推荐）**
+```bash
+# 创建Origin Access Control
+aws cloudfront create-origin-access-control --origin-access-control-config '{
+    "Name": "connect-ccp-oac",
+    "OriginAccessControlOriginType": "s3",
+    "SigningBehavior": "always",
+    "SigningProtocol": "sigv4"
+}'
+
+# 禁用S3公共访问
+aws s3api put-public-access-block --bucket $BUCKET_NAME --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+```
+
+**方案B: 公共访问（仅开发环境）**
 ```bash
 cat > bucket-policy.json << EOF
 {
@@ -126,7 +143,7 @@ https://your-cloudfront-domain.cloudfront.net
 ├── ChatDemo.html                    # 主应用文件 (48KB)
 ├── amazon-connect-chat-interface.js # 聊天接口库 (1.1MB)
 ├── ringtone.mp3                     # 音频通知文件
-├── deploy.sh                        # 自动部署脚本
+├── deploy.sh                        # 自动部署脚本（安全配置）
 ├── update-config.sh                 # 配置更新脚本
 └── cors-setup.md                    # CORS配置指南
 ```
@@ -156,10 +173,26 @@ https://your-cloudfront-domain.cloudfront.net
 - 有效的代理账户
 - HTTPS 协议
 
+## 安全最佳实践
+
+### 1. 使用OAC而非OAI
+- ✅ Origin Access Control (OAC) - 推荐
+- ❌ Origin Access Identity (OAI) - 已弃用
+- ✅ 禁用S3公共访问
+- ✅ 仅CloudFront可访问S3
+
+### 2. HTTPS和安全头
+- 强制HTTPS重定向
+- 配置安全响应头
+- 使用最新TLS版本
+
 ## 常见问题
 
 ### CORS 错误
 确保 CloudFront 域名已添加到 Connect 应用程序集成中。
+
+### 403 Forbidden 错误
+检查OAC配置和S3存储桶策略是否正确。
 
 ### 音频无法播放
 检查 `ringtone.mp3` 文件路径和 CloudFront 配置。
