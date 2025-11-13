@@ -45,13 +45,15 @@
         </div>
         <div class="flex gap-2">
           <button
+            id="loginBtn"
             class="px-3 py-1.5 text-sm bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition font-medium"
             onclick="init()"
           >
             登录
           </button>
           <button
-            class="px-3 py-1.5 text-sm bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
+            id="logoutBtn"
+            class="hidden px-3 py-1.5 text-sm bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
             onclick="Logout()"
           >
             退出
@@ -179,9 +181,7 @@
             >
               姓名
             </div>
-            <div class="mt-1 text-sm text-gray-800" id="participantName">
-              未选择参与者
-            </div>
+            <div class="mt-1 text-sm text-gray-800" id="participantName">-</div>
           </div>
           <div>
             <div
@@ -702,9 +702,10 @@
         // Remove active class from all participants
         document.querySelectorAll("#clist > li").forEach((item) => {
           item.classList.remove(
-            "bg-blue-50",
+            "bg-blue-100",
             "border-l-4",
-            "border-l-blue-500"
+            "border-l-blue-600",
+            "shadow-md"
           );
         });
 
@@ -717,9 +718,10 @@
           );
           // Add active class to selected participant
           participantElement.classList.add(
-            "bg-blue-50",
+            "bg-blue-100",
             "border-l-4",
-            "border-l-blue-500"
+            "border-l-blue-600",
+            "shadow-md"
           );
         }
 
@@ -900,16 +902,25 @@
       function showAgentLoginInfo(agent) {
         const agentInfo = document.getElementById("agentInfo");
         const agentName = document.getElementById("agentName");
+        const loginBtn = document.getElementById("loginBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
 
         agentName.textContent = agent.getName() || "未知用户";
         agentInfo.classList.remove("hidden");
+        loginBtn.classList.add("hidden");
+        logoutBtn.classList.remove("hidden");
 
         logOutput("用户登录: " + agentName.textContent);
       }
 
       function hideAgentLoginInfo() {
         const agentInfo = document.getElementById("agentInfo");
+        const loginBtn = document.getElementById("loginBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
+        
         agentInfo.classList.add("hidden");
+        loginBtn.classList.remove("hidden");
+        logoutBtn.classList.add("hidden");
         logOutput("用户已退出登录");
       }
 
