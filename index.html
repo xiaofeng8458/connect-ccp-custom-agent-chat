@@ -21,6 +21,47 @@
       .pulse-animation {
         animation: pulse 2s infinite;
       }
+      .resizer {
+        width: 8px;
+        cursor: col-resize;
+        background-color: transparent;
+        position: relative;
+        transition: background-color 0.2s;
+        flex-shrink: 0;
+        z-index: 10;
+      }
+      .resizer:hover {
+        background-color: #3b82f6;
+      }
+      .resizer::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #e5e7eb;
+        width: 1px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .resizer::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 4px;
+        height: 50px;
+        background-color: #9ca3af;
+        border-radius: 3px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .resizer:hover::after {
+        opacity: 1;
+        background-color: white;
+      }
     </style>
   </head>
 
@@ -78,7 +119,11 @@
 
     <div class="flex" style="height: calc(100vh - 3.5rem)">
       <!-- Column 1: Chat Participants -->
-      <div class="w-1/4 bg-white border-r border-gray-200 flex flex-col">
+      <div
+        id="chatParticipants"
+        class="bg-white flex flex-col"
+        style="width: 25%; min-width: 200px; max-width: 50%"
+      >
         <div class="p-4 border-b border-gray-200 bg-gray-50">
           <h2 class="text-sm font-semibold text-gray-700">参与者列表</h2>
         </div>
@@ -114,8 +159,11 @@
         </div>
       </div>
 
+      <!-- Resizer 1 -->
+      <div id="resizer1" class="resizer"></div>
+
       <!-- Column 2: Chat Messages -->
-      <div class="flex-1 bg-white flex flex-col">
+      <div id="chatMessages" class="bg-white flex flex-col" style="flex: 1">
         <div class="p-4 border-b border-gray-200 bg-gray-50">
           <h2 class="text-sm font-semibold text-gray-700">聊天消息</h2>
         </div>
@@ -166,9 +214,14 @@
         </div>
       </div>
 
+      <!-- Resizer 2 -->
+      <div id="resizer2" class="resizer"></div>
+
       <!-- Column 3: Participant Info -->
       <div
-        class="w-1/4 bg-white border-l border-gray-200 flex flex-col overflow-y-auto"
+        id="participantInfoPanel"
+        class="bg-white flex flex-col overflow-y-auto"
+        style="width: 25%; min-width: 200px; max-width: 50%"
       >
         <div class="p-4 border-b border-gray-200 bg-gray-50">
           <h2 class="text-sm font-semibold text-gray-700">参与者信息</h2>
@@ -1167,6 +1220,117 @@
             window.location.reload();
           });
       }
+
+      // Resizer functionality with persistence
+      (function () {
+        const resizer1 = document.getElementById("resizer1");
+        const resizer2 = document.getElementById("resizer2");
+        const leftPanel = document.getElementById("chatParticipants");
+        const middlePanel = document.getElementById("chatMessages");
+        const rightPanel = document.getElementById("participantInfoPanel");
+
+        const STORAGE_KEY = "chatLayoutWidths";
+
+        let isResizing = false;
+        let currentResizer = null;
+        let startX = 0;
+        let startWidth = 0;
+
+        // Load saved layout from localStorage
+        function loadLayout() {
+          try {
+            const savedLayout = localStorage.getItem(STORAGE_KEY);
+            if (savedLayout) {
+              const layout = JSON.parse(savedLayout);
+              if (layout.leftPanelWidth) {
+                leftPanel.style.width = layout.leftPanelWidth + "px";
+                leftPanel.style.flexGrow = "0";
+                leftPanel.style.flexShrink = "0";
+              }
+              if (layout.rightPanelWidth) {
+                rightPanel.style.width = layout.rightPanelWidth + "px";
+                rightPanel.style.flexGrow = "0";
+                rightPanel.style.flexShrink = "0";
+              }
+              logOutput("布局已从本地存储恢复");
+            }
+          } catch (e) {
+            logOutput("加载布局失败: " + e.message);
+          }
+        }
+
+        // Save current layout to localStorage
+        function saveLayout() {
+          try {
+            const layout = {
+              leftPanelWidth: leftPanel.offsetWidth,
+              rightPanelWidth: rightPanel.offsetWidth,
+              timestamp: new Date().toISOString(),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+            logOutput("布局已保存到本地存储");
+          } catch (e) {
+            logOutput("保存布局失败: " + e.message);
+          }
+        }
+
+        function initResizer(resizer, targetPanel, isLeftPanel) {
+          resizer.addEventListener("mousedown", function (e) {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = targetPanel.offsetWidth;
+            currentResizer = { targetPanel, isLeftPanel };
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+            e.preventDefault();
+          });
+        }
+
+        initResizer(resizer1, leftPanel, true);
+        initResizer(resizer2, rightPanel, false);
+
+        document.addEventListener("mousemove", function (e) {
+          if (!isResizing || !currentResizer) return;
+
+          const { targetPanel, isLeftPanel } = currentResizer;
+          const container = targetPanel.parentElement;
+          const containerWidth = container.offsetWidth;
+
+          let newWidth;
+          if (isLeftPanel) {
+            // For left panel, increase width when dragging right
+            const deltaX = e.clientX - startX;
+            newWidth = startWidth + deltaX;
+          } else {
+            // For right panel, increase width when dragging left
+            const deltaX = startX - e.clientX;
+            newWidth = startWidth + deltaX;
+          }
+
+          const minWidth = 200;
+          const maxWidth = containerWidth * 0.5;
+
+          if (newWidth >= minWidth && newWidth <= maxWidth) {
+            targetPanel.style.width = newWidth + "px";
+            targetPanel.style.flexGrow = "0";
+            targetPanel.style.flexShrink = "0";
+          }
+        });
+
+        document.addEventListener("mouseup", function () {
+          if (isResizing) {
+            isResizing = false;
+            currentResizer = null;
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            // Save layout after resizing
+            saveLayout();
+          }
+        });
+
+        // Load layout on page load
+        loadLayout();
+      })();
     </script>
   </body>
 </html>
