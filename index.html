@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/amazon-connect-streams@2.18.3/release/connect-streams.js"></script>
+    <script
+      type="text/javascript"
+      src="amazon-connect-chat-interface.js"
+    ></script>
+    <style>
+      @keyframes pulse {
+        0%,
+        100% {
+          background-color: #fef3c7;
+        }
+        50% {
+          background-color: #fde68a;
+        }
+      }
+      .pulse-animation {
+        animation: pulse 2s infinite;
+      }
+      .resizer {
+        width: 8px;
+        cursor: col-resize;
+        background-color: transparent;
+        position: relative;
+        transition: background-color 0.2s;
+        flex-shrink: 0;
+        z-index: 10;
+      }
+      .resizer:hover {
+        background-color: #3b82f6;
+      }
+      .resizer::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #e5e7eb;
+        width: 1px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .resizer::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 4px;
+        height: 50px;
+        background-color: #9ca3af;
+        border-radius: 3px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .resizer:hover::after {
+        opacity: 1;
+        background-color: white;
+      }
+    </style>
+  </head>
+
+  <body class="bg-gray-50">
+    <!-- Top Header Bar -->
+    <div
+      class="h-14 bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-800 flex items-center justify-between px-6"
+    >
+      <h1 class="text-xl font-bold text-white">Amazon Connect Chat</h1>
+      <div class="flex items-center gap-4">
+        <div
+          id="agentInfo"
+          class="hidden flex items-center gap-3 text-white text-sm"
+        >
+          <span id="agentName" class="font-medium"></span>
+          <span class="text-blue-200">|</span>
+          <select
+            id="stateDropdown"
+            class="px-2 py-1 text-xs bg-white/20 text-white border border-white/30 rounded hover:bg-white/30 transition"
+            onchange="handleSelectChange()"
+          ></select>
+        </div>
+        <div class="flex gap-2">
+          <button
+            id="loginBtn"
+            class="px-3 py-1.5 text-sm bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition font-medium"
+            onclick="init()"
+          >
+            登录
+          </button>
+          <button
+            id="logoutBtn"
+            class="hidden px-3 py-1.5 text-sm bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
+            onclick="Logout()"
+          >
+            退出
+          </button>
+          <button
+            class="px-3 py-1.5 text-sm bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
+            id="ccpContainer-btn"
+            onclick="showCCP()"
+          >
+            CCP
+          </button>
+          <button
+            class="px-3 py-1.5 text-sm bg-white/20 text-white rounded-lg hover:bg-white/30 transition"
+            id="logContainer-btn"
+            onclick="showLog()"
+          >
+            日志
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex" style="height: calc(100vh - 3.5rem)">
+      <!-- Column 1: Chat Participants -->
+      <div
+        id="chatParticipants"
+        class="bg-white flex flex-col"
+        style="width: 25%; min-width: 200px; max-width: 50%"
+      >
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+          <h2 class="text-sm font-semibold text-gray-700">参与者列表</h2>
+        </div>
+
+        <!-- Participants List -->
+        <ul id="clist" class="overflow-y-auto border-b border-gray-200"></ul>
+
+        <!-- CCP Container -->
+        <div
+          id="container-div"
+          class="hidden w-full flex-1 border-b border-gray-200"
+        ></div>
+
+        <!-- Log Container -->
+        <div
+          id="logContainer"
+          class="hidden border-t border-gray-200 p-3 bg-gray-50"
+        >
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs text-gray-500 font-medium">系统日志</span>
+            <button
+              class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition"
+              onclick="clearOutput()"
+            >
+              清除
+            </button>
+          </div>
+          <textarea
+            id="logDisplay"
+            readonly
+            class="w-full h-48 text-xs border border-gray-300 rounded p-2 resize-none font-mono bg-white"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Resizer 1 -->
+      <div id="resizer1" class="resizer"></div>
+
+      <!-- Column 2: Chat Messages -->
+      <div id="chatMessages" class="bg-white flex flex-col" style="flex: 1">
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+          <h2 class="text-sm font-semibold text-gray-700">聊天消息</h2>
+        </div>
+
+        <div
+          class="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-gray-50 to-white"
+          id="txtChatBox"
+        >
+          <!-- Messages will be displayed here -->
+        </div>
+
+        <div class="p-4 border-t border-gray-200 bg-white">
+          <div
+            class="flex items-center gap-2 border border-gray-300 rounded-full px-4 py-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent"
+          >
+            <button class="text-xl hover:scale-110 transition" title="附件">
+              📎
+            </button>
+            <button class="text-xl hover:scale-110 transition" title="表情">
+              😊
+            </button>
+            <input
+              type="text"
+              placeholder="输入消息..."
+              id="txtMessage"
+              class="flex-1 outline-none text-sm"
+              onkeypress="if(event.key==='Enter') sendChatMessage()"
+            />
+            <button
+              onclick="sendChatMessage()"
+              class="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-medium transition"
+            >
+              发送
+            </button>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <select
+              id="myDropdown"
+              class="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            ></select>
+            <button
+              class="px-4 py-1.5 bg-white border border-blue-500 text-blue-500 hover:bg-blue-50 rounded-lg text-sm font-medium transition"
+              onclick="TransferChat()"
+            >
+              转接
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resizer 2 -->
+      <div id="resizer2" class="resizer"></div>
+
+      <!-- Column 3: Participant Info -->
+      <div
+        id="participantInfoPanel"
+        class="bg-white flex flex-col overflow-y-auto"
+        style="width: 25%; min-width: 200px; max-width: 50%"
+      >
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+          <h2 class="text-sm font-semibold text-gray-700">参与者信息</h2>
+        </div>
+
+        <div class="p-4 space-y-4" id="participantInfo">
+          <div>
+            <div
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            >
+              姓名
+            </div>
+            <div class="mt-1 text-sm text-gray-800" id="participantName">-</div>
+          </div>
+          <div>
+            <div
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            >
+              邮箱
+            </div>
+            <div class="mt-1 text-sm text-gray-800" id="participantEmail">
+              -
+            </div>
+          </div>
+          <div>
+            <div
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            >
+              状态
+            </div>
+            <div class="mt-1 text-sm text-gray-800" id="participantStatus">
+              -
+            </div>
+          </div>
+          <div>
+            <div
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wide"
+            >
+              联系ID
+            </div>
+            <div
+              class="mt-1 text-sm text-gray-800 break-all"
+              id="participantContactId"
+            >
+              -
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden debug output -->
+    <textarea id="message" style="display: none"></textarea>
+
+    <script type="text/javascript">
+      const instanceURL = "https://connect-us-1.my.connect.aws/";
+      const instanceCCPURL = instanceURL + "ccp-v2/";
+      const instanceRegion = "us-east-1";
+      const loginURL = "";
+      const logoutURL = "https://connect-us-1.my.connect.aws/connect/logout";
+
+      // initialize the streams api
+      function init() {
+        window.localStorage.removeItem(
+          "connectPopupManager::connect::loginPopup"
+        );
+
+        initialize();
+
+        // initialize the ccp
+        initCore(instanceCCPURL, loginURL, instanceRegion);
+
+        connect.contact(subscribeToContactEvents);
+
+        connect.agent(subscribeToAgentEvents);
+      }
+
+      function initCore(instanceCCPURL, loginURL, instanceRegion) {
+        var containerDiv = document.getElementById("container-div");
+        try {
+          connect.core.initCCP(containerDiv, {
+            ccpUrl: instanceCCPURL, // REQUIRED
+            loginUrl: loginURL,
+            loginPopup: true, // optional, defaults to `true`
+            loginPopupAutoClose: true, // optional, defaults to `false`
+            loginOptions: {
+              // optional, if provided opens login in new window
+              autoClose: true, // optional, defaults to `false`
+              height: 600, // optional, defaults to 578
+              width: 400, // optional, defaults to 433
+              top: 0, // optional, defaults to 0
+              left: 0, // optional, defaults to 0
+            },
+            region: instanceRegion, // REQUIRED for `CHAT`, optional otherwise
+            softphone: {
+              // optional, defaults below apply if not provided
+              allowFramedSoftphone: true, // optional, defaults to false
+              disableRingtone: false, // optional, defaults to false
+              // ringtoneUrl: "./ringtone.mp3" // optional, defaults to CCP’s default ringtone if a falsy value is set
+            },
+            chat: {
+              disableRingtone: false, // optional, defaults to false
+              ringtoneUrl:
+                "http://127.0.0.1:54093/agent-chat-demo-customized/ringtone.mp3",
+            },
+            pageOptions: {
+              //optional
+              enableAudioDeviceSettings: true, //optional, defaults to 'false'
+              enablePhoneTypeSettings: true, //optional, defaults to 'true'
+            },
+            ccpAckTimeout: 5000, //optional, defaults to 3000 (ms)
+            ccpSynTimeout: 3000, //optional, defaults to 1000 (ms)
+            ccpLoadTimeout: 10000, //optional, defaults to 5000 (ms)
+          });
+        } catch (err) {
+          logOutput(JSON.stringify(err));
+        }
+      }
+
+      function subscribeToContactEvents(c) {
+        c.onConnecting((c) => {
+          logOutput("onConnecting event : handleContactConnecting");
+
+          window.contact = c;
+          addConnectingContact(c);
+        });
+
+        c.onConnected((c) => {
+          logOutput("onConnected event : Contact connected to agent");
+
+          window.contact = c;
+          addConnectedContact(c);
+
+          if (!window.controllers[c.contactId]) {
+            initChatController(c);
+          }
+        });
+
+        c.onAccepted(async () => {
+          initChatController(c);
+        });
+
+        c.onACW((c) => {
+          addConnectedContact(c);
+        });
+
+        c.onEnded((c) => {
+          logOutput("onEnded event");
+        });
+
+        c.onRefresh((c) => {
+          logOutput("onRefresh event");
+        });
+
+        c.onMissed((c) => {
+          logOutput("onMissed event");
+
+          addMissedContact(c);
+        });
+      }
+
+      async function initChatController(contact) {
+        const cnn = contact.getAgentConnection();
+        if (cnn) {
+          const controller = await cnn.getMediaController();
+          window.controllers[contact.contactId] = controller;
+
+          // Set as current if no current contact
+          if (!window.currentContactId) {
+            window.currentContactId = contact.contactId;
+            window.controller = controller;
+          }
+
+          controller.onMessage(async function (response) {
+            logOutput("on message:" + JSON.stringify(response));
+            await addChatMessage(response, contact.contactId);
+          });
+
+          const awsSdkResponse = await controller.getTranscript({
+            maxResults: 100,
+            sortOrder: "ASCENDING",
+          });
+          const { InitialContactId, NextToken, Transcript } =
+            awsSdkResponse.data;
+          await addChatTranscriptMessage(Transcript, contact.contactId);
+          logOutput(JSON.stringify(Transcript));
+
+          controller.onConnectionLost(function (response) {
+            logOutput("connection lost:" + JSON.stringify(response));
+          });
+        }
+      }
+
+      function sendChatMessage() {
+        if (window.controller) {
+          var msg = document.getElementById("txtMessage").value;
+          window.controller.sendMessage({
+            contentType: "text/plain",
+            message: msg,
+          });
+          document.getElementById("txtMessage").value = "";
+          logOutput("send message:" + msg);
+        }
+      }
+
+      function getReceivedMessage() {
+        const table =
+          '<div class="mb-4 flex justify-start">' +
+          '<div class="max-w-[70%]">' +
+          '<div class="bg-gray-200 text-gray-800 rounded-2xl rounded-tl-sm px-4 py-2 inline-block">Content</div>' +
+          '<div class="text-xs text-gray-500 mt-1">DisplayName · Time</div>' +
+          "</div></div>";
+        return table;
+      }
+
+      function getSentMessage() {
+        const table =
+          '<div class="mb-4 flex justify-end">' +
+          '<div class="max-w-[70%]">' +
+          '<div class="bg-blue-500 text-white rounded-2xl rounded-tr-sm px-4 py-2 inline-block">Content</div>' +
+          '<div class="text-xs text-gray-500 mt-1 text-right">Time</div>' +
+          "</div></div>";
+        return table;
+      }
+
+      function getCurrentTime() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, "0");
+        const minutes = now.getMinutes().toString().padStart(2, "0");
+        const seconds = now.getSeconds().toString().padStart(2, "0");
+        const currentTime = `${hours}:${minutes}:${seconds}`;
+        return currentTime;
+      }
+
+      async function getChatMessage(response, role) {
+        if (response.data) {
+          // Handle MESSAGE type
+          if (response.data.Type === "MESSAGE") {
+            var table =
+              role === "sent" ? getSentMessage() : getReceivedMessage();
+            table = table.replace(
+              "DisplayName",
+              response.data.DisplayName || "Unknown"
+            );
+            table = table.replace("Content", response.data.Content || "");
+            table = table.replace("Time", getCurrentTime());
+
+            return table;
+          }
+
+          // Handle ATTACHMENT type
+          if (
+            response.data.Type === "ATTACHMENT" &&
+            response.data.Attachments &&
+            response.data.Attachments.length > 0
+          ) {
+            var table =
+              role === "sent" ? getSentMessage() : getReceivedMessage();
+            table = table.replace(
+              "DisplayName",
+              response.data.DisplayName || "Unknown"
+            );
+
+            // Create attachment links
+            var content = "";
+
+            for (const attachment of response.data.Attachments) {
+              // Create a hyperlink for each attachment
+              var attachmentContent = "";
+
+              const awsSdkResponse = await window.controller.downloadAttachment(
+                {
+                  attachmentId: attachment.AttachmentId,
+                }
+              );
+              var attachmentUrl = URL.createObjectURL(awsSdkResponse);
+
+              if (attachment.ContentType == "image/png") {
+                var attachmentImg =
+                  '<img src="' +
+                  attachmentUrl +
+                  '" style="max-width: 100%; height: auto;"></img>';
+                attachmentContent += attachmentImg;
+              }
+
+              var attachmentLink =
+                '<a href="' +
+                attachmentUrl +
+                '" download="' +
+                attachment.AttachmentName +
+                '" >' +
+                attachment.AttachmentName +
+                "</a>";
+              attachmentContent += attachmentLink;
+
+              content +=
+                '<div class="attachment-item">' + attachmentContent + "</div>";
+            }
+
+            table = table.replace("Content", content || "");
+            table = table.replace("Time", getCurrentTime());
+
+            return table;
+          }
+        }
+
+        return "";
+      }
+
+      async function addChatMessage(response, contactId = null) {
+        var message = await getChatMessage(
+          response,
+          response.data.ParticipantRole == "AGENT" ? "sent" : "received"
+        );
+        const targetContactId = contactId || window.currentContactId;
+
+        if (targetContactId) {
+          // Store message for this contact
+          if (!window.chatMessages[targetContactId]) {
+            window.chatMessages[targetContactId] = "";
+          }
+          window.chatMessages[targetContactId] += message;
+
+          // Increment unread count if message is from customer and not current contact
+          if (response.data.ParticipantRole !== "AGENT" && targetContactId !== window.currentContactId) {
+            if (!window.unreadCounts) {
+              window.unreadCounts = {};
+            }
+            if (!window.unreadCounts[targetContactId]) {
+              window.unreadCounts[targetContactId] = 0;
+            }
+            window.unreadCounts[targetContactId]++;
+            updateUnreadBadge(targetContactId);
+            
+            // Move contact to top when new message arrives
+            moveContactToTop(targetContactId);
+          }
+
+          // Only update display if this is the current contact
+          if (targetContactId === window.currentContactId) {
+            document.getElementById("txtChatBox").innerHTML =
+              window.chatMessages[targetContactId];
+            document.getElementById("txtChatBox").scrollTop =
+              document.getElementById("txtChatBox").scrollHeight;
+          }
+        }
+      }
+
+      async function addChatTranscriptMessage(response, contactId) {
+        let messages = "";
+        for (const item of response) {
+          const type = item.Type;
+          if (type == "MESSAGE") {
+            const participantRole = item.ParticipantRole;
+            const displayName = item.DisplayName;
+            const content = item.Content;
+            const localTime = convertToLocalTime(item.AbsoluteTime);
+
+            var table =
+              participantRole == "CUSTOMER"
+                ? getReceivedMessage()
+                : getSentMessage();
+            table = table.replace("DisplayName", displayName);
+            table = table.replace("Content", content);
+            table = table.replace("Time", localTime);
+
+            messages += table;
+          }
+          if (type == "ATTACHMENT") {
+            const participantRole = item.ParticipantRole;
+            const displayName = item.DisplayName;
+            const localTime = convertToLocalTime(item.AbsoluteTime);
+
+            var table =
+              participantRole == "CUSTOMER"
+                ? getReceivedMessage()
+                : getSentMessage();
+            table = table.replace("DisplayName", displayName);
+
+            var content = "";
+            for (const attachment of item.Attachments) {
+              // Create a hyperlink for each attachment
+              var attachmentContent = "";
+
+              const awsSdkResponse = await window.controller.downloadAttachment(
+                {
+                  attachmentId: attachment.AttachmentId,
+                }
+              );
+              var attachmentUrl = URL.createObjectURL(awsSdkResponse);
+
+              if (attachment.ContentType == "image/png") {
+                var attachmentImg =
+                  '<img src="' +
+                  attachmentUrl +
+                  '" style="max-width: 100%; height: auto;"></img>';
+                attachmentContent += attachmentImg;
+              }
+
+              var attachmentLink =
+                '<a href="' +
+                attachmentUrl +
+                '" download="' +
+                attachment.AttachmentName +
+                '" >' +
+                attachment.AttachmentName +
+                "</a>";
+              attachmentContent += attachmentLink;
+
+              content +=
+                '<div class="attachment-item">' + attachmentContent + "</div>";
+            }
+
+            table = table.replace("Content", content);
+            table = table.replace("Time", localTime);
+
+            messages += table;
+          }
+        }
+
+        // Store messages for this contact
+        window.chatMessages[contactId] = messages;
+
+        // Only update display if this is the current contact
+        if (contactId === window.currentContactId) {
+          document.getElementById("txtChatBox").innerHTML = messages;
+          document.getElementById("txtChatBox").scrollTop =
+            document.getElementById("txtChatBox").scrollHeight;
+        }
+      }
+
+      function convertToLocalTime(utcTimeString) {
+        const date = new Date(utcTimeString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const seconds = String(date.getSeconds()).padStart(2, "0");
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      }
+
+      function removeContact(contactId) {
+        const list = document.getElementById("clist");
+        const item = document.getElementById(contactId);
+        if (item) {
+          list.removeChild(item);
+        }
+      }
+
+      function addConnectingContact(contact) {
+        removeContact(contact.contactId);
+
+        const participantItem = document.createElement("li");
+        participantItem.id = contact.contactId;
+        participantItem.className =
+          "p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition border-l-4 border-l-yellow-400 pulse-animation";
+        participantItem.onclick = () => selectParticipant(contact);
+
+        participantItem.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-800">${getCustomerName(
+                              contact
+                            )}</div>
+                            <div class="text-xs text-gray-500" id="${
+                              contact.contactId
+                            }-indicator">连接中...</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button class="px-2 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded transition" onclick="AcceptContact()">接受</button>
+                            <button class="px-2 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded transition" onclick="RejectContact()">拒绝</button>
+                        </div>
+                    </div>
+                `;
+
+        // Insert at the top of the list (最新对话置顶)
+        const clist = document.getElementById("clist");
+        if (clist.firstChild) {
+          clist.insertBefore(participantItem, clist.firstChild);
+        } else {
+          clist.appendChild(participantItem);
+        }
+        
+        restart_checker(contact.contactId, true, "连接中");
+      }
+
+      function addConnectedContact(contact) {
+        removeContact(contact.contactId);
+
+        const participantItem = document.createElement("li");
+        participantItem.id = contact.contactId;
+        participantItem.className =
+          "p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition";
+        participantItem.onclick = () => selectParticipant(contact);
+
+        // Initialize unread count if not exists
+        if (!window.unreadCounts) {
+          window.unreadCounts = {};
+        }
+        if (!window.unreadCounts[contact.contactId]) {
+          window.unreadCounts[contact.contactId] = 0;
+        }
+
+        const unreadCount = window.unreadCounts[contact.contactId];
+        const unreadBadge = unreadCount > 0 
+          ? `<span class="ml-2 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">${unreadCount}</span>` 
+          : '';
+
+        participantItem.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1">
+                            <div class="flex items-center">
+                                <span class="font-semibold text-gray-800">${getCustomerName(contact)}</span>
+                                <span id="${contact.contactId}-unread">${unreadBadge}</span>
+                            </div>
+                            <div class="text-xs text-green-600" id="${
+                              contact.contactId
+                            }-indicator">已连接</div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button class="px-2 py-1 text-xs border border-red-500 text-red-500 hover:bg-red-50 rounded transition" onclick="EndContact('${
+                              contact.contactId
+                            }')">结束</button>
+                            <button class="px-2 py-1 text-xs border border-gray-400 text-gray-600 hover:bg-gray-50 rounded transition" onclick="ClearContact('${
+                              contact.contactId
+                            }')">清除</button>
+                        </div>
+                    </div>
+                `;
+
+        // Insert at the top of the list (最新对话置顶)
+        const clist = document.getElementById("clist");
+        if (clist.firstChild) {
+          clist.insertBefore(participantItem, clist.firstChild);
+        } else {
+          clist.appendChild(participantItem);
+        }
+
+        restart_checker(contact.contactId, true, "已连接");
+
+        // Auto-select if no current contact
+        if (!window.currentContactId) {
+          selectParticipant(contact);
+        }
+      }
+
+      function addMissedContact(contact) {
+        removeContact(contact.contactId);
+
+        const participantItem = document.createElement("li");
+        participantItem.id = contact.contactId;
+        participantItem.className =
+          "p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition";
+        participantItem.onclick = () => selectParticipant(contact);
+
+        participantItem.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-800">聊天</div>
+                            <div class="text-xs text-yellow-600" id="${contact.contactId}-indicator">未接</div>
+                        </div>
+                        <div>
+                            <button class="px-2 py-1 text-xs border border-gray-400 text-gray-600 hover:bg-gray-50 rounded transition" onclick="ClearContact('${contact.contactId}')">清除</button>
+                        </div>
+                    </div>
+                `;
+
+        document.getElementById("clist").appendChild(participantItem);
+        restart_checker(contact.contactId, true, "未接");
+      }
+
+      function selectParticipant(contact) {
+        // Remove active class from all participants
+        document.querySelectorAll("#clist > li").forEach((item) => {
+          item.classList.remove(
+            "bg-blue-100",
+            "border-l-4",
+            "border-l-blue-600",
+            "shadow-md"
+          );
+        });
+
+        const participantElement = document.getElementById(contact.contactId);
+        if (participantElement) {
+          // Remove new-incoming highlight when selected
+          participantElement.classList.remove(
+            "pulse-animation",
+            "border-l-yellow-400"
+          );
+          // Add active class to selected participant
+          participantElement.classList.add(
+            "bg-blue-100",
+            "border-l-4",
+            "border-l-blue-600",
+            "shadow-md"
+          );
+        }
+
+        // Update current contact and controller
+        window.currentContactId = contact.contactId;
+        window.contact = contact;
+        window.controller = window.controllers[contact.contactId];
+
+        // Clear unread count for this contact
+        if (window.unreadCounts && window.unreadCounts[contact.contactId]) {
+          window.unreadCounts[contact.contactId] = 0;
+          updateUnreadBadge(contact.contactId);
+        }
+
+        // Update participant info
+        document.getElementById("participantName").textContent =
+          getCustomerName(contact);
+        document.getElementById("participantContactId").textContent =
+          contact.contactId;
+        document.getElementById("participantStatus").textContent =
+          contact.getState().type;
+        document.getElementById("participantEmail").textContent =
+          getCustomerEmail(contact) || "-";
+
+        // Load chat messages for this contact
+        loadChatMessages(contact.contactId);
+      }
+
+      function loadChatMessages(contactId) {
+        const chatBox = document.getElementById("txtChatBox");
+        chatBox.innerHTML = window.chatMessages[contactId] || "";
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function getCustomerEmail(contact) {
+        try {
+          var c1 = contact.getConnections()[1];
+          var info = c1.getMediaInfo().originalInfo;
+          return info ? info.customerEmail : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function showCCP() {
+        const ccpDiv = document.getElementById("container-div");
+        ccpDiv.classList.toggle("hidden");
+
+        var containerBtn = document.getElementById("ccpContainer-btn");
+        containerBtn.textContent = ccpDiv.classList.contains("hidden")
+          ? "CCP"
+          : "隐藏";
+      }
+
+      function subscribeToAgentEvents(agent) {
+        logOutput("Agent login");
+
+        // Show agent login info
+        showAgentLoginInfo(agent);
+
+        agent.onStateChange((event) => {
+          showAgentStatus("onStateChange", agent);
+        });
+
+        agent.onOffline((event) => {
+          showAgentStatus("onOffline", agent);
+          hideAgentLoginInfo();
+        });
+
+        agent.onRefresh((event) => {
+          logOutput("Agent onRefresh");
+        });
+
+        agent.onRoutable((event) => {
+          logOutput("Agent onRoutable");
+        });
+
+        agent.onNotRoutable((event) => {
+          logOutput("Agent onNotRoutable");
+        });
+
+        agent.onSoftphoneError((event) => {
+          logOutput("Agent onSoftphoneError");
+        });
+
+        agent.onWebSocketConnectionLost((event) => {
+          logOutput("Agent onWebSocketConnectionLost");
+        });
+
+        agent.onWebSocketConnectionGained((event) => {
+          logOutput("Agent onWebSocketConnectionGained");
+        });
+
+        agent.onAfterCallWork((event) => {
+          logOutput("Agent onAfterCallWork");
+        });
+
+        loadAgentStates();
+
+        loadQuickConnects();
+
+        loadMissedContact();
+      }
+
+      function loadMissedContact() {
+        var isMissed = false;
+
+        const agent = new lily.Agent();
+        const contacts = agent.getContacts();
+        const contact = contacts.filter(
+          (c) => c.getState().type === "error"
+        )[0];
+        if (contact) {
+          isMissed = true;
+        }
+
+        if (isMissed) {
+          addMissedContact(contact);
+        }
+      }
+
+      function getCustomerName(contact) {
+        var name = "Anonymous";
+        var c1 = contact.getConnections()[1];
+        var info = c1.getMediaInfo().originalInfo;
+        if (info) {
+          name = info.customerName;
+        }
+        return name;
+      }
+
+      function showAgentStatus(trigger, agent) {
+        var aname = agent.getName();
+        var astate = agent.getState();
+        logOutput(trigger + " event : " + aname + " goes " + astate.name);
+      }
+
+      function initialize() {
+        window.contact = window.contact || {};
+        window.controller = window.controller || {};
+        window.timers = {};
+        window.controllers = {};
+        window.endpoints = [];
+        window.chatMessages = {};
+        window.currentContactId = null;
+        window.unreadCounts = {};
+      }
+
+      function updateUnreadBadge(contactId) {
+        const unreadElement = document.getElementById(contactId + "-unread");
+        if (unreadElement) {
+          const count = window.unreadCounts[contactId] || 0;
+          if (count > 0) {
+            unreadElement.innerHTML = `<span class="ml-2 px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">${count}</span>`;
+          } else {
+            unreadElement.innerHTML = '';
+          }
+        }
+      }
+
+      function moveContactToTop(contactId) {
+        const clist = document.getElementById("clist");
+        const contactElement = document.getElementById(contactId);
+        
+        if (contactElement && clist.firstChild !== contactElement) {
+          clist.removeChild(contactElement);
+          clist.insertBefore(contactElement, clist.firstChild);
+        }
+      }
+
+      function logOutput(text) {
+        var textarea = document.getElementById("message");
+        textarea.value += text + "\n";
+
+        // Also update the visible log display if it's shown
+        var logDisplay = document.getElementById("logDisplay");
+        if (logDisplay) {
+          logDisplay.value = textarea.value;
+          logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+      }
+
+      function clearOutput() {
+        document.getElementById("message").value = "";
+        var logDisplay = document.getElementById("logDisplay");
+        if (logDisplay) {
+          logDisplay.value = "";
+        }
+      }
+
+      function showLog() {
+        const logContainer = document.getElementById("logContainer");
+        const logBtn = document.getElementById("logContainer-btn");
+        const logDisplay = document.getElementById("logDisplay");
+
+        logContainer.classList.toggle("hidden");
+        logBtn.textContent = logContainer.classList.contains("hidden")
+          ? "日志"
+          : "隐藏";
+
+        if (!logContainer.classList.contains("hidden")) {
+          logDisplay.value = document.getElementById("message").value;
+          logDisplay.scrollTop = logDisplay.scrollHeight;
+        }
+      }
+
+      function showAgentLoginInfo(agent) {
+        const agentInfo = document.getElementById("agentInfo");
+        const agentName = document.getElementById("agentName");
+        const loginBtn = document.getElementById("loginBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
+
+        agentName.textContent = agent.getName() || "未知用户";
+        agentInfo.classList.remove("hidden");
+        loginBtn.classList.add("hidden");
+        logoutBtn.classList.remove("hidden");
+
+        logOutput("用户登录: " + agentName.textContent);
+      }
+
+      function hideAgentLoginInfo() {
+        const agentInfo = document.getElementById("agentInfo");
+        const loginBtn = document.getElementById("loginBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
+        
+        agentInfo.classList.add("hidden");
+        loginBtn.classList.remove("hidden");
+        logoutBtn.classList.add("hidden");
+        logOutput("用户已退出登录");
+      }
+
+      function AcceptContact() {
+        if (window.contact == {}) {
+          alert("No contact is coming");
+        } else {
+          c = window.contact;
+          c.accept({
+            success: function () {
+              // Remove new-incoming highlight after accepting
+              const participantElement = document.getElementById(c.contactId);
+              if (participantElement) {
+                participantElement.classList.remove(
+                  "pulse-animation",
+                  "border-l-yellow-400"
+                );
+              }
+            },
+            failure: function (err) {},
+          });
+        }
+      }
+
+      function RejectContact() {
+        if (window.contact == {}) {
+          alert("No contact is coming");
+        } else {
+          c = window.contact;
+          c.reject({
+            success: function () {
+              // Remove participant from list after rejecting
+              removeContact(c.contactId);
+            },
+            failure: function (err) {},
+          });
+        }
+      }
+
+      function EndContact(contactId) {
+        c = getContact(contactId);
+        if (!c) {
+          alert("No call is connected");
+        } else {
+          var initialConnection = c.getInitialConnection();
+          var thirdParty = c.getSingleActiveThirdPartyConnection();
+          if (initialConnection) {
+            initialConnection.destroy({
+              success: function () {},
+              failure: function (err) {
+                alert(err);
+              },
+            });
+          }
+        }
+
+        restart_checker(c.contactId, true, "ACW");
+      }
+
+      function restart_checker(cId, display, s) {
+        const checkTimer = window.timers[cId];
+        if (checkTimer) {
+          clearInterval(checkTimer);
+        }
+
+        if (display) {
+          const startTime = new Date().getTime();
+          window.timers[cId] = setInterval(() => {
+            const currentTime = new Date().getTime();
+            const elapsedTime = currentTime - startTime;
+            const durationString = formatTime(elapsedTime);
+
+            const indicator = cId + "-indicator";
+            var timerDiv = document.getElementById(indicator);
+            timerDiv.textContent = " " + s + " " + durationString;
+          }, 1000);
+        }
+      }
+
+      function formatTime(milliseconds) {
+        const seconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+
+        const remainingSeconds = seconds % 60;
+        const remainingMinutes = minutes % 60;
+
+        return `${padZero(hours)}:${padZero(remainingMinutes)}:${padZero(
+          remainingSeconds
+        )}`;
+      }
+
+      function padZero(value) {
+        return value.toString().padStart(2, "0");
+      }
+
+      function SetAgentState(stateName) {
+        const agent = new lily.Agent();
+        const states = agent.getAgentStates();
+        if (states.length > 0) {
+          const state = states.filter((s) => s.name === stateName)[0];
+          agent.setState(state, {
+            success: function () {},
+            failure: function () {},
+          });
+        }
+      }
+
+      function clearChatWindow(contactId = null) {
+        const targetContactId = contactId || window.currentContactId;
+        if (targetContactId) {
+          delete window.chatMessages[targetContactId];
+          if (targetContactId === window.currentContactId) {
+            document.getElementById("txtChatBox").innerHTML = "";
+          }
+        }
+        document.getElementById("txtMessage").value = "";
+      }
+
+      function ClearContact(contactId) {
+        c = getContact(contactId);
+        if (!c) {
+          alert("No contact is coming");
+        } else {
+          c.clear({
+            success: function () {
+              removeContact(contactId);
+              clearChatWindow(contactId);
+            },
+            failure: function (err) {},
+          });
+        }
+
+        restart_checker(contactId, false, "");
+      }
+
+      function loadAgentStates() {
+        const agent = new lily.Agent();
+        const curState = agent.getState().name;
+        const states = agent.getAgentStates();
+        states.sort((a, b) => a.name.localeCompare(b.name));
+        const dropdown = document.getElementById("stateDropdown");
+        dropdown.options.length = 0;
+        for (let i = 0; i < states.length; i++) {
+          // Create a new <option> element
+          const option = document.createElement("option");
+
+          // Set the value and text of the <option>
+          option.value = i;
+          option.text = states[i].name;
+          if (option.text == curState) {
+            option.selected = "selected";
+          }
+
+          // Add the <option> to the <select>
+          dropdown.add(option);
+        }
+      }
+
+      function handleSelectChange() {
+        const dropdown = document.getElementById("stateDropdown");
+        const selectedOption = dropdown.options[dropdown.selectedIndex];
+        const selectedState = selectedOption.text;
+        SetAgentState(selectedState);
+      }
+
+      function loadQuickConnects() {
+        var agent = new lily.Agent();
+        var queuesARNs = agent.getAllQueueARNs();
+        agent.getEndpoints(queuesARNs, {
+          success: function (data) {
+            window.endpoints = data.endpoints;
+            // Get a reference to the dropdown element
+            const dropdown = document.getElementById("myDropdown");
+            dropdown.options.length = 0;
+            // Loop through the options array
+            for (let i = 0; i < data.endpoints.length; i++) {
+              // Create a new <option> element
+              const option = document.createElement("option");
+
+              // Set the value and text of the <option>
+              option.value = i;
+              option.text = data.endpoints[i].name;
+
+              // Add the <option> to the <select>
+              dropdown.add(option);
+            }
+          },
+          failure: function (data) {
+            //alert("Supervisor is unavailable...");
+          },
+        });
+      }
+
+      function getSelectedEndpoint() {
+        // Get a reference to the dropdown element
+        const dropdown = document.getElementById("myDropdown");
+        // Get the selected option index
+        const selectedIndex = dropdown.selectedIndex;
+
+        // If an option is selected, get its value and text
+        if (selectedIndex !== -1) {
+          const selectedValue = dropdown.options[selectedIndex].value;
+          return window.endpoints[selectedValue];
+        } else {
+          return [];
+        }
+      }
+
+      function TransferChat() {
+        const endpoint = getSelectedEndpoint();
+        var agent = new lily.Agent();
+        agent.getContacts(lily.ContactType.CHAT)[0].addConnection(endpoint, {
+          success: function (data) {},
+          failure: function (data) {
+            alert("Error transfering chat");
+          },
+        });
+      }
+
+      function getContact(contactId) {
+        var contact = null;
+        const agent = new lily.Agent();
+        const contacts = agent.getContacts();
+        contacts.forEach(function (item) {
+          if (contactId == item.contactId) {
+            contact = item;
+            return;
+          }
+        });
+        return contact;
+      }
+
+      function Logout() {
+        hideAgentLoginInfo();
+        fetch(logoutURL, { credentials: "include", mode: "no-cors" })
+          .then(() => {
+            const eventBus = connect.core.getEventBus();
+            eventBus.trigger(connect.EventType.TERMINATE);
+
+            clearChatWindow();
+          })
+          .then(() => {
+            window.location.reload();
+          });
+      }
+
+      // Resizer functionality with persistence
+      (function () {
+        const resizer1 = document.getElementById("resizer1");
+        const resizer2 = document.getElementById("resizer2");
+        const leftPanel = document.getElementById("chatParticipants");
+        const middlePanel = document.getElementById("chatMessages");
+        const rightPanel = document.getElementById("participantInfoPanel");
+
+        const STORAGE_KEY = "chatLayoutWidths";
+
+        let isResizing = false;
+        let currentResizer = null;
+        let startX = 0;
+        let startWidth = 0;
+
+        // Load saved layout from localStorage
+        function loadLayout() {
+          try {
+            const savedLayout = localStorage.getItem(STORAGE_KEY);
+            if (savedLayout) {
+              const layout = JSON.parse(savedLayout);
+              if (layout.leftPanelWidth) {
+                leftPanel.style.width = layout.leftPanelWidth + "px";
+                leftPanel.style.flexGrow = "0";
+                leftPanel.style.flexShrink = "0";
+              }
+              if (layout.rightPanelWidth) {
+                rightPanel.style.width = layout.rightPanelWidth + "px";
+                rightPanel.style.flexGrow = "0";
+                rightPanel.style.flexShrink = "0";
+              }
+              logOutput("布局已从本地存储恢复");
+            }
+          } catch (e) {
+            logOutput("加载布局失败: " + e.message);
+          }
+        }
+
+        // Save current layout to localStorage
+        function saveLayout() {
+          try {
+            const layout = {
+              leftPanelWidth: leftPanel.offsetWidth,
+              rightPanelWidth: rightPanel.offsetWidth,
+              timestamp: new Date().toISOString(),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+            logOutput("布局已保存到本地存储");
+          } catch (e) {
+            logOutput("保存布局失败: " + e.message);
+          }
+        }
+
+        function initResizer(resizer, targetPanel, isLeftPanel) {
+          resizer.addEventListener("mousedown", function (e) {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = targetPanel.offsetWidth;
+            currentResizer = { targetPanel, isLeftPanel };
+            document.body.style.cursor = "col-resize";
+            document.body.style.userSelect = "none";
+            e.preventDefault();
+          });
+        }
+
+        initResizer(resizer1, leftPanel, true);
+        initResizer(resizer2, rightPanel, false);
+
+        document.addEventListener("mousemove", function (e) {
+          if (!isResizing || !currentResizer) return;
+
+          const { targetPanel, isLeftPanel } = currentResizer;
+          const container = targetPanel.parentElement;
+          const containerWidth = container.offsetWidth;
+
+          let newWidth;
+          if (isLeftPanel) {
+            // For left panel, increase width when dragging right
+            const deltaX = e.clientX - startX;
+            newWidth = startWidth + deltaX;
+          } else {
+            // For right panel, increase width when dragging left
+            const deltaX = startX - e.clientX;
+            newWidth = startWidth + deltaX;
+          }
+
+          const minWidth = 200;
+          const maxWidth = containerWidth * 0.5;
+
+          if (newWidth >= minWidth && newWidth <= maxWidth) {
+            targetPanel.style.width = newWidth + "px";
+            targetPanel.style.flexGrow = "0";
+            targetPanel.style.flexShrink = "0";
+          }
+        });
+
+        document.addEventListener("mouseup", function () {
+          if (isResizing) {
+            isResizing = false;
+            currentResizer = null;
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            // Save layout after resizing
+            saveLayout();
+          }
+        });
+
+        // Load layout on page load
+        loadLayout();
+      })();
+    </script>
+  </body>
+</html>
